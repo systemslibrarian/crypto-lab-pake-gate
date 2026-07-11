@@ -1,8 +1,46 @@
 /* PAKE Gate UI — self-contained styles. --accent is provided by index.html.
-   Neutral palette defined here; prefers-color-scheme supported. Color is always
+   Theme is driven by html[data-theme] (toggled by the shared header). Dark is the
+   default palette on :root; [data-theme="light"] overrides it. The head init
+   script defaults data-theme to the user's prefers-color-scheme when no
+   preference is saved, so the OS-driven behavior is preserved. Color is always
    paired with an icon + text (WCAG 1.4.1). */
 
 :root {
+  /* Dark palette (default). Light overrides live in :root[data-theme="light"]. */
+  --bg: #14141a;
+  --panel: #1d1d26;
+  --panel-2: #24242f;
+  --ink: #ececf2;
+  --ink-soft: #b6b6c2;
+  --ink-faint: #9696a0; /* AA on --panel-2 #24242f (was #85858f, 4.20:1) */
+  --line: #33333f;
+  --line-strong: #45454f;
+
+  --accent-strong: #c084fc; /* passes on dark --bg (6.9:1) */
+
+  --ok: #6ee7a0;
+  --ok-bg: #123021;
+  --ok-line: #2c6a45;
+  --alarm: #ff9a92;
+  --alarm-bg: #3a1512;
+  --alarm-line: #7a2a24;
+  --amber: #f4c95d;
+  --amber-bg: #322709;
+  --amber-line: #6b5417;
+
+  --secret-bg: #241f33;
+  --secret-line: #3d3352;
+
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
   --bg: #f7f7fb;
   --panel: #ffffff;
   --panel-2: #f0f0f6;
@@ -28,41 +66,13 @@
 
   --secret-bg: #f2eefb;
   --secret-line: #d9cdf3;
-
-  --radius: 10px;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14141a;
-    --panel: #1d1d26;
-    --panel-2: #24242f;
-    --ink: #ececf2;
-    --ink-soft: #b6b6c2;
-    --ink-faint: #9696a0; /* AA on --panel-2 #24242f (was #85858f, 4.20:1) */
-    --line: #33333f;
-    --line-strong: #45454f;
-
-    --accent-strong: #c084fc; /* passes on dark --bg (6.9:1) */
-
-    --ok: #6ee7a0;
-    --ok-bg: #123021;
-    --ok-line: #2c6a45;
-    --alarm: #ff9a92;
-    --alarm-bg: #3a1512;
-    --alarm-line: #7a2a24;
-    --amber: #f4c95d;
-    --amber-bg: #322709;
-    --amber-line: #6b5417;
-
-    --secret-bg: #241f33;
-    --secret-line: #3d3352;
-  }
 }
 
 * { box-sizing: border-box; }
+
+/* WebKit promotes body's background to the canvas only if html has one of its
+   own; without this axe sees a transparent page and mis-flags dark-theme text. */
+html { background-color: var(--bg); }
 
 body {
   margin: 0;
@@ -76,7 +86,9 @@ body {
 
 .app { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem; }
 
-a { color: var(--accent-strong); }
+/* Scope link color to the app so it never bleeds onto the always-dark shared
+   header (which sets its own link colors via .cl-btn / .cl-brand). */
+#app a { color: var(--accent-strong); }
 
 /* --- intro --- */
 .intro__title { margin: 0 0 0.25rem; font-size: clamp(1.4rem, 3vw, 2rem); }

@@ -2,24 +2,30 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * WCAG regression gate. This lab has no runtime theme toggle — the palette is
- * driven entirely by prefers-color-scheme — so both themes are exercised via
- * colorScheme emulation. Before scanning we drive every protocol tab and reveal
- * every auxiliary panel (observer / tamper menu / server breach / dragonblood)
- * so the dynamically-injected result regions are all in the DOM.
+ * WCAG regression gate. The palette is driven by html[data-theme], toggled by
+ * the shared header's #cl-theme-toggle button; dark is the default and light is
+ * reached by clicking the toggle (matching the ascon/vdf pattern). Before
+ * scanning we drive every protocol tab and reveal every auxiliary panel
+ * (observer / tamper menu / server breach / dragonblood) so the dynamically
+ * injected result regions are all in the DOM.
  */
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 
 const TAB_IDS = ['srp6a', 'jpake', 'cpace', 'dragonfly'] as const;
 
-// Kill animations/transitions so nothing is mid-fade when axe measures contrast.
-const NEUTRALIZE = `
-  *, *::before, *::after {
-    transition: none !important;
-    animation: none !important;
-  }
-`;
+async function killMotion(page: Page): Promise<void> {
+  await page.addStyleTag({
+    content: `*,*::before,*::after{transition:none!important;animation:none!important}`,
+  });
+}
+
+async function revealAll(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    for (const d of document.querySelectorAll('details')) d.open = true;
+    for (const h of document.querySelectorAll('[hidden]')) h.removeAttribute('hidden');
+  });
+}
 
 async function clickLaunchers(page: Page): Promise<void> {
   // Within the currently-selected tab, click every scripted launcher so each
@@ -54,13 +60,6 @@ async function driveAllTabs(page: Page): Promise<void> {
   }
 }
 
-async function prepare(page: Page): Promise<void> {
-  await page.goto('.');
-  await expect(page.locator('#app .app')).toBeVisible();
-  await page.addStyleTag({ content: NEUTRALIZE });
-  await driveAllTabs(page);
-}
-
 async function scan(page: Page): Promise<void> {
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   const summary = results.violations.map((v) => ({
@@ -73,13 +72,21 @@ async function scan(page: Page): Promise<void> {
 }
 
 test('no WCAG A/AA violations in dark theme', async ({ page }) => {
-  await page.emulateMedia({ colorScheme: 'dark' });
-  await prepare(page);
+  await page.goto('.');
+  await expect(page.locator('#app .app')).toBeVisible();
+  await killMotion(page);
+  await driveAllTabs(page);
+  await revealAll(page);
   await scan(page);
 });
 
 test('no WCAG A/AA violations in light theme', async ({ page }) => {
-  await page.emulateMedia({ colorScheme: 'light' });
-  await prepare(page);
+  await page.goto('.');
+  await expect(page.locator('#app .app')).toBeVisible();
+  await page.locator('#cl-theme-toggle').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await killMotion(page);
+  await driveAllTabs(page);
+  await revealAll(page);
   await scan(page);
 });
