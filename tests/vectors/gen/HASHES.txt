@@ -1,0 +1,6 @@
+# SHA-256 of PAKE Gate KAT generator sources (pinned per provenance).
+66592e1c67ec2d10f5ca27487f654b114ecaad8eb18e1600bc3052899eed6191  derive_groups.py
+299a8a5a941cb57bc99c0c296930ca0c840bc80232072128ff3999ea2723c7ff  srp_track2_kat.py
+bb347f0fd2bc02e8a568ce20cd01ea3c67bd66a09e5788b270ef826182b25f26  jpake_kat.py
+2fc7e18bb9f8081bf82dfddf3135a1a60181cea7d9f3f5f75c137d128b853739  dragonfly_kat.py
+3f452d317883c8d6ecbdb20ec24a6d42abc467a906865e3eab903e5aad3333d8  hash_generators.py

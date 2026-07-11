@@ -1,0 +1,31 @@
+{
+  "name": "crypto-lab-pake-gate",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "SRP-6a, J-PAKE, CPace, and Dragonfly (RFC 7664) side by side — a live tour of the PAKE family.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.6.0",
+    "@noble/hashes": "^1.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "@typescript-eslint/eslint-plugin": "^8.8.0",
+    "@typescript-eslint/parser": "^8.8.0",
+    "axe-core": "^4.12.1",
+    "eslint": "^8.57.0",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.2"
+  }
+}
