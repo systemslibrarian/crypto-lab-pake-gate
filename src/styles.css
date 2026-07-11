@@ -41,7 +41,7 @@
     --panel-2: #24242f;
     --ink: #ececf2;
     --ink-soft: #b6b6c2;
-    --ink-faint: #85858f;
+    --ink-faint: #9696a0; /* AA on --panel-2 #24242f (was #85858f, 4.20:1) */
     --line: #33333f;
     --line-strong: #45454f;
 

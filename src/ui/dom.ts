@@ -41,7 +41,15 @@ export function clear(node: Element): void {
 /** A horizontally-scrollable hex box with a copy button. Never wraps. */
 export function hexBox(value: string, opts?: { highlight?: boolean; label?: string }): HTMLElement {
   const box = el("div", { class: "hexbox" + (opts?.highlight ? " hexbox--hot" : "") });
-  const code = el("code", { class: "hexbox__value", text: value });
+  // The value scrolls horizontally (never wraps), so it is a scrollable region
+  // and needs keyboard access + an accessible name (WCAG 2.1.1).
+  const code = el("code", {
+    class: "hexbox__value",
+    text: value,
+    tabindex: "0",
+    role: "group",
+    "aria-label": `${opts?.label ?? "value"} (scrollable hex)`,
+  });
   const copy = el(
     "button",
     {
