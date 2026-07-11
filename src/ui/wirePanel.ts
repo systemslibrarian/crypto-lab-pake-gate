@@ -14,6 +14,12 @@ export function renderWirePanel(
   opts?: { rawBytes?: boolean },
 ): void {
   clear(host);
+  host.append(
+    el("div", { class: "wire__caption" }, [
+      el("strong", { text: "The Wire" }),
+      el("span", { class: "wire__caption-sub", text: " — everything an on-path observer sees. Nothing else crosses the network." }),
+    ]),
+  );
   if (cards.length === 0) {
     host.append(el("p", { class: "wire__empty", text: "No messages yet. Press Step (or a scripted run) to cross a message." }));
     return;

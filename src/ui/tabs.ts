@@ -22,8 +22,23 @@ export function mountApp(root: HTMLElement): void {
   const app = el("div", { class: "app" });
 
   const intro = el("section", { class: "intro" }, [
-    el("h1", { class: "intro__title", text: "Watch the password stay home" }),
-    el("p", { class: "intro__lead", text: "Four PAKE protocols side by side. The left and right boxes hold each peer's private scratchpad; the center is the Wire — literally everything an on-path observer sees. Step through a handshake and confirm both sides derive the same session key without the password ever crossing." }),
+    el("h1", { class: "intro__title", text: "PAKE Gate — watch the password stay home" }),
+    el("p", { class: "intro__lead", text: "A PAKE (Password-Authenticated Key Exchange) lets two parties turn a shared, low-entropy password into a strong shared key — without the password, or anything an attacker could grind offline, ever crossing the network. The lesson: a PAKE is NOT “hash the password and send it.” This lab runs four of them for real in your browser, no backend." }),
+    el("p", { class: "intro__how" }, [
+      el("strong", { text: "How to use: " }),
+      "pick a protocol tab, type a password, and click ",
+      el("em", { text: "Honest run" }),
+      " — both sides derive the same key and the badge turns green (“key confirmed”). Change one side's password (",
+      el("em", { text: "Wrong password" }),
+      ") and it fails red. ",
+      el("em", { text: "Step ▸" }),
+      " advances one message at a time so you can read each field as it crosses.",
+    ]),
+    el("ul", { class: "legend", "aria-label": "how to read the split view" }, [
+      el("li", { class: "legend__item" }, [el("b", { text: "Left & Right — " }), "each peer's private scratchpad: secrets that never touch the wire."]),
+      el("li", { class: "legend__item" }, [el("b", { text: "Center — the Wire: " }), "every field that actually crosses the network (the transcript an eavesdropper sees)."]),
+      el("li", { class: "legend__item" }, [el("b", { text: "Below — the key: " }), "each side's derived session key, shown as a short fingerprint; it lights green only when both match and confirm."]),
+    ]),
   ]);
   app.append(intro);
 

@@ -452,3 +452,33 @@ a { color: var(--accent-strong); }
     scroll-behavior: auto !important;
   }
 }
+
+/* --- explanatory copy: intro legend, per-tab explainer, wire caption --- */
+.intro__how { margin: 0.55rem 0 0; color: var(--ink-soft); max-width: 82ch; }
+.legend { margin: 0.6rem 0 0; padding-left: 1.1rem; color: var(--ink-soft); font-size: 0.9rem; max-width: 82ch; }
+.legend__item { margin: 0.15rem 0; }
+
+.explainer {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 0.8rem 1rem;
+  margin-bottom: 0.25rem;
+}
+.explainer__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem 0.7rem; margin-bottom: 0.4rem; }
+.explainer__title { margin: 0; font-size: 1.15rem; }
+.explainer__std { color: var(--ink-faint); font-size: 0.78rem; }
+.explainer__what { margin: 0 0 0.5rem; max-width: 82ch; }
+.explainer__try { margin: 0; color: var(--ink-soft); font-size: 0.9rem; max-width: 82ch; }
+
+.badge {
+  display: inline-block; padding: 0.12rem 0.55rem; border-radius: 999px;
+  font-size: 0.74rem; font-weight: 700; border: 1px solid var(--line-strong);
+  background: var(--panel-2); color: var(--ink);
+}
+.badge--balanced { border-color: var(--ok-line); background: var(--ok-bg); color: var(--ok); }
+.badge--augmented { border-color: var(--secret-line); background: var(--secret-bg); color: var(--accent-strong); }
+
+.wire__caption { font-size: 0.82rem; margin-bottom: 0.55rem; color: var(--ink); }
+.wire__caption-sub { color: var(--ink-soft); }

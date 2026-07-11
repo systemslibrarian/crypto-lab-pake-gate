@@ -26,9 +26,30 @@ import {
   renderBalancedBreachNote,
 } from "./attacker.ts";
 import { renderDragonbloodPanel } from "./dragonbloodPanel.ts";
+import { TAXONOMY } from "../pake/taxonomy.ts";
 
 const ID_A = "alice@example";
 const ID_B = "bob@example";
+
+// Per-tab "what you are actually watching here" — the concrete demonstration, not the
+// abstract definition (that lives in the taxonomy matrix below the tabs).
+const DEMONSTRATES: Record<ProtocolId, string> = {
+  srp6a:
+    "The augmented case: the server stores only a verifier {salt, v}, never your password. Watch the A / B / u / S exchange end in a mutually-confirmed key — then open “Server breach” to see why a stolen verifier still costs the attacker an offline dictionary attack.",
+  jpake:
+    "The balanced case: two peers who share the same password each publish g^x with a zero-knowledge proof, then mix the password in — no verifier is stored anywhere. Try “Active tamper” on a Round-1 proof to watch the handshake abort before any key even exists.",
+  cpace:
+    "The compact one-round balanced PAKE the CFRG chose: the generator is derived from the password AND the session context, a Diffie–Hellman runs over it, and the key is bound to the whole transcript before confirmation.",
+  dragonfly:
+    "The family behind WPA3’s SAE: the password is mapped to a curve point by “hunting and pecking.” That search loop is exactly what the Dragonblood attack timed — open the Dragonblood panel to see the leak, and why the honest run uses a minimum-iteration derivation.",
+};
+
+const TRY_HINT: Record<ProtocolId, string> = {
+  srp6a: "Type a password, click Register, then Honest run — both keys match and confirm (green). Try Wrong password to watch it fail (red).",
+  jpake: "Click Honest run (same password both sides) → keys match and confirm. Type a different Peer B password (Wrong password) to see it fail.",
+  cpace: "Click Honest run → both sides derive the same key and confirm. Change one side’s password (Wrong password) to watch the keys diverge.",
+  dragonfly: "Click Honest run → both peers derive the same key from the shared password. Then open the Dragonblood side-channel panel.",
+};
 
 type Aux = "none" | "observer" | "breach" | "dragonblood";
 
@@ -113,6 +134,7 @@ export class TabView {
   // --- build static layout ---
 
   private build(): void {
+    this.root.append(this.buildExplainer());
     this.root.append(this.buildControls());
 
     this.statusHost = el("div", { class: "status", role: "status", "aria-live": "polite" });
@@ -133,6 +155,24 @@ export class TabView {
 
     this.auxHost = el("div", { class: "aux" });
     this.root.append(this.auxHost);
+  }
+
+  private buildExplainer(): HTMLElement {
+    const row = TAXONOMY.find((r) => r.id === this.protocol)!;
+    const family = row.kind === "balanced" ? "balanced PAKE" : "augmented PAKE";
+    const badgeClass = row.kind === "balanced" ? "badge badge--balanced" : "badge badge--augmented";
+    return el("section", { class: "explainer", "aria-label": `About ${row.name}` }, [
+      el("div", { class: "explainer__head" }, [
+        el("h2", { class: "explainer__title", text: row.name }),
+        el("span", { class: badgeClass, text: family }),
+        el("span", { class: "explainer__std", text: row.standardization }),
+      ]),
+      el("p", { class: "explainer__what", text: DEMONSTRATES[this.protocol] }),
+      el("p", { class: "explainer__try" }, [
+        el("strong", { text: "Try it: " }),
+        TRY_HINT[this.protocol],
+      ]),
+    ]);
   }
 
   private buildControls(): HTMLElement {

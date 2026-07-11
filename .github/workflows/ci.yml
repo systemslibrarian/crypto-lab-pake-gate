@@ -8,13 +8,17 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run coverage # runs all tests + enforces the src/pake coverage floor
       - run: npm run build

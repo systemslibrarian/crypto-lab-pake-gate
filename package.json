@@ -9,7 +9,10 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:full": "vitest run",
+    "test:fast": "vitest run --exclude \"**/params.test.ts\" --exclude \"**/grind.test.ts\"",
     "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
     "lint": "eslint . --ext .ts",
     "typecheck": "tsc --noEmit"
   },
@@ -21,6 +24,7 @@
     "@types/node": "^22.20.1",
     "@typescript-eslint/eslint-plugin": "^8.8.0",
     "@typescript-eslint/parser": "^8.8.0",
+    "@vitest/coverage-v8": "^2.1.9",
     "axe-core": "^4.12.1",
     "eslint": "^8.57.0",
     "jsdom": "^25.0.1",
