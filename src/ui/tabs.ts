@@ -22,8 +22,23 @@ export function mountApp(root: HTMLElement): void {
   const app = el("div", { class: "app" });
 
   const intro = el("section", { class: "intro" }, [
-    el("h1", { class: "intro__title", text: "PAKE Gate — watch the password stay home" }),
-    el("p", { class: "intro__lead", text: "A PAKE (Password-Authenticated Key Exchange) lets two parties turn a shared, low-entropy password into a strong shared key — without the password, or anything an attacker could grind offline, ever crossing the network. The lesson: a PAKE is NOT “hash the password and send it.” This lab runs four of them for real in your browser, no backend." }),
+    el("header", { class: "cl-hero" }, [
+      el("div", { class: "cl-hero-main" }, [
+        el("h1", { class: "cl-hero-title", text: "PAKE Gate" }),
+        el("p", { class: "cl-hero-sub", text: "PAKE · SRP-6a · J-PAKE · CPace · Dragonfly" }),
+        el("p", {
+          class: "cl-hero-desc",
+          text: "Run four password-authenticated key exchanges for real in your browser and watch each side derive the same session key while the password — and anything grindable offline — never crosses the wire.",
+        }),
+      ]),
+      el("aside", { class: "cl-hero-why", "aria-label": "Why it matters" }, [
+        el("span", { class: "cl-hero-why-label", text: "WHY IT MATTERS" }),
+        el("p", {
+          class: "cl-hero-why-text",
+          text: "A PAKE is NOT “hash the password and send it.” It defends the weakest secret people actually use — passwords — against eavesdroppers and server breaches, so a stolen record and a captured transcript still can't be grinded back to the login.",
+        }),
+      ]),
+    ]),
     el("p", { class: "intro__how" }, [
       el("strong", { text: "How to use: " }),
       "pick a protocol tab, type a password, and click ",
