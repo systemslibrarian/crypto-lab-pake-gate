@@ -63,6 +63,18 @@ export class TabView {
   private aux: Aux = "none";
   private activeLauncher: LauncherId | null = null;
 
+  // Progressive disclosure. "simple" is the guided Start-here view: plain-language
+  // rows, only Honest run + Wrong password, and the observer/tamper/breach/Dragonblood
+  // panels gated behind "Go deeper". "deep" reveals the full notation and all panels.
+  private depth: "simple" | "deep" = "simple";
+  // Index of the most-recently-added card, for the derivation→wire lift animation.
+  private newestIndex = -1;
+  // "A" | "B" | "client" | "server" that published the newest card — that peer's
+  // secret rows pulse their lock to show the secret stayed home while a public value
+  // crossed. Cleared after a beat so the pulse is a one-shot, not permanent.
+  private publisher: WireCard["msg"]["from"] | null = null;
+  private pulseTimer: number | null = null;
+
   // SRP-only registration state.
   private srpRecord: SrpVerifierRecord | null = null;
 
@@ -80,8 +92,13 @@ export class TabView {
   private statusHost!: HTMLElement;
   private controlsHost!: HTMLElement;
 
-  constructor(readonly protocol: ProtocolId) {
+  /** Notified the first time this tab enters "deep" mode, so the tab surface can
+      reveal the other three protocols (gated for the newcomer until then). */
+  onGoDeeper?: () => void;
+
+  constructor(readonly protocol: ProtocolId, opts?: { startDeep?: boolean }) {
     this.root = el("div", { class: "tabview", role: "tabpanel" });
+    if (opts?.startDeep) this.depth = "deep";
     this.runner = this.freshRunner();
     this.build();
     this.rerender();
@@ -216,9 +233,13 @@ export class TabView {
     }
     this.controlsHost.append(fields);
 
-    // Launcher buttons.
+    // Launcher buttons. In the guided "simple" view only Honest run + Wrong password
+    // are shown; the observer / tamper / breach / Dragonblood launchers are gated
+    // behind "Go deeper" so the core lesson lands before the taxonomy does.
+    const SIMPLE_LAUNCHERS = new Set<LauncherId>(["honest", "wrong-password"]);
     const launchers = el("div", { class: "controls__launchers", role: "group", "aria-label": "scripted scenarios" });
     for (const l of launchersFor(this.protocol)) {
+      if (this.depth === "simple" && !SIMPLE_LAUNCHERS.has(l.id)) continue;
       const b = button(l.label, () => this.runLauncher(l.id), {
         class: "btn--launcher" + (this.activeLauncher === l.id ? " is-active" : ""),
         title: l.expect,
@@ -226,6 +247,26 @@ export class TabView {
       launchers.append(b);
     }
     this.controlsHost.append(launchers);
+
+    // Progressive-disclosure toggle.
+    const deeper = el("div", { class: "controls__depth" });
+    if (this.depth === "simple") {
+      deeper.append(
+        el("p", { class: "controls__depth-note", text: "Start here: run the honest handshake, then a wrong password. When it clicks, go deeper." }),
+        button("Go deeper ▾", () => { this.depth = "deep"; this.onGoDeeper?.(); this.rerender(); }, {
+          class: "btn--secondary",
+          title: "Reveal full notation, the observer / tamper / breach panels, and the other protocols",
+        }),
+      );
+    } else {
+      deeper.append(
+        button("◂ Back to simple view", () => { this.depth = "simple"; this.aux = "none"; this.rerender(); }, {
+          class: "btn--ghost",
+          title: "Return to the plain-language guided view",
+        }),
+      );
+    }
+    this.controlsHost.append(deeper);
 
     // Stepper + view toggles.
     const stepper = el("div", { class: "controls__stepper" });
@@ -253,7 +294,24 @@ export class TabView {
   private addCard(card: WireCard | null): void {
     // A step may return an already-recorded card (e.g. an abort attributed to the
     // message being received). Only append genuinely new cards.
-    if (card && !this.cards.includes(card)) this.cards.push(card);
+    if (card && !this.cards.includes(card)) {
+      this.cards.push(card);
+      this.markPublished(card);
+    }
+  }
+
+  /** Flag the newest card + the peer that sent it so the UI can play the lift +
+      lock-pulse (the public value crosses, the secret stays home). One-shot. */
+  private markPublished(card: WireCard): void {
+    this.newestIndex = this.cards.indexOf(card);
+    this.publisher = card.msg.from;
+    if (this.pulseTimer !== null) window.clearTimeout(this.pulseTimer);
+    this.pulseTimer = window.setTimeout(() => {
+      this.publisher = null;
+      this.pulseTimer = null;
+      // Re-render only the peer panels to drop the pulse class.
+      this.renderPeers();
+    }, 1400);
   }
 
   private doStep(): void {
@@ -265,6 +323,8 @@ export class TabView {
 
   private runAll(): void {
     let guard = 0;
+    this.newestIndex = -1;
+    this.publisher = null;
     while (this.runner.hasNext() && guard++ < 64) {
       const { card } = this.runner.step();
       this.addCard(card);
@@ -344,13 +404,33 @@ export class TabView {
 
   // --- render ---
 
+  private labelMode(): "plain" | "notation" {
+    return this.depth === "simple" ? "plain" : "notation";
+  }
+
+  /** left peer is client/A, right peer is server/B — map publisher to a side. */
+  private renderPeers(): void {
+    const leftFrom = this.protocol === "srp6a" ? "client" : "A";
+    const rightFrom = this.protocol === "srp6a" ? "server" : "B";
+    const mode = this.labelMode();
+    renderPeerPanel(this.peerLeftHost, this.runner.leftPeer(), {
+      hideScratch: this.wireOnly,
+      labelMode: mode,
+      justPublished: this.publisher === leftFrom,
+    });
+    renderPeerPanel(this.peerRightHost, this.runner.rightPeer(), {
+      hideScratch: this.wireOnly,
+      labelMode: mode,
+      justPublished: this.publisher === rightFrom,
+    });
+  }
+
   private rerender(): void {
     this.renderControls();
     this.renderStatus();
     this.renderTamperMenu();
-    renderPeerPanel(this.peerLeftHost, this.runner.leftPeer(), { hideScratch: this.wireOnly });
-    renderPeerPanel(this.peerRightHost, this.runner.rightPeer(), { hideScratch: this.wireOnly });
-    renderWirePanel(this.wireHost, this.cards, { rawBytes: false });
+    this.renderPeers();
+    renderWirePanel(this.wireHost, this.cards, { rawBytes: false, newestIndex: this.newestIndex });
     renderKeyPanel(
       this.keyHost,
       this.runner.leftKey(),

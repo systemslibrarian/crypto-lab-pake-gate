@@ -4,10 +4,12 @@ import { expect, test, type Page } from '@playwright/test';
 /**
  * WCAG regression gate. The palette is driven by html[data-theme], toggled by
  * the shared header's #cl-theme-toggle button; dark is the default and light is
- * reached by clicking the toggle (matching the ascon/vdf pattern). Before
- * scanning we drive every protocol tab and reveal every auxiliary panel
- * (observer / tamper menu / server breach / dragonblood) so the dynamically
- * injected result regions are all in the DOM.
+ * reached by clicking the toggle (matching the ascon/vdf pattern). The lab opens
+ * in a guided "simple" view with only SRP-6a available and the other three
+ * protocols gated behind "Go deeper"; we press it first to unlock everything,
+ * then drive every protocol tab and reveal every auxiliary panel (observer /
+ * tamper menu / server breach / dragonblood) so the dynamically injected result
+ * regions are all in the DOM.
  */
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
@@ -52,6 +54,17 @@ async function clickLaunchers(page: Page): Promise<void> {
   }
 }
 
+async function unlockDeep(page: Page): Promise<void> {
+  // The guided default gates the other three protocols and the aux panels behind
+  // "Go deeper" (shown in the SRP-6a tab, which opens first). Press it to reveal
+  // the full surface the scan needs.
+  const deeper = page.getByRole('button', { name: /Go deeper/i });
+  if (await deeper.count()) {
+    await deeper.first().click();
+  }
+  await expect(page.locator('#tab-jpake')).not.toBeDisabled();
+}
+
 async function driveAllTabs(page: Page): Promise<void> {
   for (const id of TAB_IDS) {
     await page.locator(`#tab-${id}`).click();
@@ -75,6 +88,7 @@ test('no WCAG A/AA violations in dark theme', async ({ page }) => {
   await page.goto('.');
   await expect(page.locator('#app .app')).toBeVisible();
   await killMotion(page);
+  await unlockDeep(page);
   await driveAllTabs(page);
   await revealAll(page);
   await scan(page);
@@ -86,6 +100,7 @@ test('no WCAG A/AA violations in light theme', async ({ page }) => {
   await page.locator('#cl-theme-toggle').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await killMotion(page);
+  await unlockDeep(page);
   await driveAllTabs(page);
   await revealAll(page);
   await scan(page);

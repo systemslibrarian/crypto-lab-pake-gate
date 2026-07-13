@@ -65,8 +65,8 @@ export abstract class StepMachine {
     return this.tamper;
   }
 
-  protected push(msg: WireMsg, highlight: string[]): WireCard {
-    const card: WireCard = { msg, highlight };
+  protected push(msg: WireMsg, highlight: string[], caption?: string): WireCard {
+    const card: WireCard = { msg, highlight, caption };
     if (this.tamper?.step === msg.step) card.tampered = true;
     this.lastCard = card;
     return card;

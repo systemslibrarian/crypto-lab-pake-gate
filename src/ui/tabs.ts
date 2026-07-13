@@ -40,14 +40,18 @@ export function mountApp(root: HTMLElement): void {
       ]),
     ]),
     el("p", { class: "intro__how" }, [
-      el("strong", { text: "How to use: " }),
-      "pick a protocol tab, type a password, and click ",
+      el("strong", { text: "Start here: " }),
+      "the lab opens on ",
+      el("em", { text: "SRP-6a" }),
+      " in a plain-language view. Type a password and click ",
       el("em", { text: "Honest run" }),
       " — both sides derive the same key and the badge turns green (“key confirmed”). Change one side's password (",
       el("em", { text: "Wrong password" }),
-      ") and it fails red. ",
+      ") and it fails red. When it clicks, press ",
+      el("em", { text: "Go deeper" }),
+      " to reveal the full notation, the tamper / observer / breach panels, and the other three protocols. ",
       el("em", { text: "Step ▸" }),
-      " advances one message at a time so you can read each field as it crosses.",
+      " advances one message at a time so you can watch each value lift onto the Wire while the secrets stay home.",
     ]),
     el("ul", { class: "legend", "aria-label": "how to read the split view" }, [
       el("li", { class: "legend__item" }, [el("b", { text: "Left & Right — " }), "each peer's private scratchpad: secrets that never touch the wire."]),
@@ -59,12 +63,43 @@ export function mountApp(root: HTMLElement): void {
 
   const tablist = el("div", { class: "tabs", role: "tablist", "aria-label": "PAKE protocols" });
   const panelHost = el("div", { class: "tabs__panels" });
-  app.append(tablist, panelHost);
+  // Guided default: only the first protocol (SRP-6a) is available. The other three
+  // stay gated behind a "Go deeper" reveal so a newcomer meets one handshake, not
+  // four dense peer tabs at once. Clicking "Go deeper" inside SRP unlocks them.
+  const gateNote = el("p", { class: "tabs__gate", role: "note" }, [
+    "Starting with ",
+    el("strong", { text: "SRP-6a" }),
+    ". The other three protocols unlock when you press ",
+    el("em", { text: "Go deeper" }),
+    " below.",
+  ]);
+  app.append(tablist, gateNote, panelHost);
 
   const views = new Map<ProtocolId, TabView>();
   const buttons = new Map<ProtocolId, HTMLButtonElement>();
+  let unlocked = false;
+
+  const GATED: ProtocolId[] = ["jpake", "cpace", "dragonfly"];
+
+  const applyGate = (): void => {
+    for (const id of GATED) {
+      const btn = buttons.get(id);
+      if (!btn) continue;
+      btn.disabled = !unlocked;
+      btn.setAttribute("aria-disabled", String(!unlocked));
+      btn.title = unlocked ? "" : "Press “Go deeper” in the SRP-6a tab to unlock the other protocols";
+    }
+    gateNote.hidden = unlocked;
+  };
+
+  const unlock = (): void => {
+    if (unlocked) return;
+    unlocked = true;
+    applyGate();
+  };
 
   const select = (id: ProtocolId): void => {
+    if (!unlocked && GATED.includes(id)) return; // gated: ignore
     for (const [pid, btn] of buttons) {
       const on = pid === id;
       btn.classList.toggle("is-active", on);
@@ -73,7 +108,10 @@ export function mountApp(root: HTMLElement): void {
     }
     let view = views.get(id);
     if (!view) {
-      view = new TabView(id);
+      // A gated protocol can only ever be reached after unlock, so it opens directly
+      // in deep mode; SRP opens in the guided simple view.
+      view = new TabView(id, { startDeep: unlocked && id !== "srp6a" });
+      view.onGoDeeper = unlock;
       views.set(id, view);
     }
     panelHost.replaceChildren(view.root);
@@ -93,7 +131,13 @@ export function mountApp(root: HTMLElement): void {
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         e.preventDefault();
         const dir = e.key === "ArrowRight" ? 1 : -1;
-        const next = TABS[(i + dir + TABS.length) % TABS.length]!;
+        // Skip gated tabs while locked.
+        let step = 1;
+        let next = TABS[(i + dir + TABS.length) % TABS.length]!;
+        while (!unlocked && GATED.includes(next.id) && step < TABS.length) {
+          step++;
+          next = TABS[(i + dir * step + TABS.length * step) % TABS.length]!;
+        }
         buttons.get(next.id)?.focus();
         select(next.id);
       }
@@ -101,6 +145,8 @@ export function mountApp(root: HTMLElement): void {
     buttons.set(t.id, btn);
     tablist.append(btn);
   });
+
+  applyGate();
 
   app.append(renderTaxonomyPanel());
 

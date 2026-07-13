@@ -11,7 +11,7 @@ function looksHex(v: unknown): v is string {
 export function renderWirePanel(
   host: HTMLElement,
   cards: WireCard[],
-  opts?: { rawBytes?: boolean },
+  opts?: { rawBytes?: boolean; newestIndex?: number },
 ): void {
   clear(host);
   host.append(
@@ -24,14 +24,15 @@ export function renderWirePanel(
     host.append(el("p", { class: "wire__empty", text: "No messages yet. Press Step (or a scripted run) to cross a message." }));
     return;
   }
-  for (const card of cards) {
-    host.append(renderCard(card, opts?.rawBytes ?? false));
-  }
+  cards.forEach((card, i) => {
+    host.append(renderCard(card, opts?.rawBytes ?? false, i === opts?.newestIndex));
+  });
 }
 
-function renderCard(card: WireCard, rawBytes: boolean): HTMLElement {
+function renderCard(card: WireCard, rawBytes: boolean, isNew: boolean): HTMLElement {
   const cls =
     "wcard" +
+    (isNew ? " wcard--new" : "") +
     (card.aborted ? " wcard--abort" : "") +
     (card.tampered ? " wcard--tampered" : "");
   const from = card.msg.from;
@@ -41,6 +42,15 @@ function renderCard(card: WireCard, rawBytes: boolean): HTMLElement {
     card.tampered ? el("span", { class: "wcard__badge wcard__badge--tamper", text: "⚠ tampered" }) : undefined,
     card.aborted ? el("span", { class: "wcard__badge wcard__badge--abort", text: "⚠ rejected" }) : undefined,
   ]);
+
+  // Plain-language "what just happened" caption leads the hex so a newcomer can
+  // read the handshake as a story. Kept alongside the raw fields, never instead.
+  const caption = card.caption
+    ? el("p", { class: "wcard__caption" }, [
+        el("span", { class: "wcard__caption-icon", "aria-hidden": "true", text: "✉ " }),
+        card.caption,
+      ])
+    : undefined;
 
   const fields = el("div", { class: "wcard__fields" });
   for (const [name, value] of Object.entries(card.msg.fields)) {
@@ -54,7 +64,7 @@ function renderCard(card: WireCard, rawBytes: boolean): HTMLElement {
     fields.append(fieldEl);
   }
 
-  const card_ = el("div", { class: cls }, [header, fields]);
+  const card_ = el("div", { class: cls }, [header, caption, fields]);
   if (card.aborted) {
     card_.append(
       el("p", { class: "wcard__abort-msg" }, [

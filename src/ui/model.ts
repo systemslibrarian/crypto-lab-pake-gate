@@ -15,6 +15,16 @@ export interface ScratchRow {
   readonly value: string;
   /** true = a secret that must never touch the wire (locked styling). */
   readonly secret: boolean;
+  /**
+   * Plain-language name for the "Start here / simple" view — e.g. "my private
+   * nonce" for `a (private nonce)`. Shown in place of the notation for newcomers.
+   */
+  readonly plain?: string;
+  /**
+   * Glossary key (see ui/glossary.ts). When present the notation label gets an
+   * in-context, one-sentence definition on hover / focus.
+   */
+  readonly term?: string;
 }
 
 /** A rendered peer at a moment in time. */
@@ -29,6 +39,11 @@ export interface WireCard {
   readonly msg: WireMsg;
   /** field names produced/changed by the step that pushed this card. */
   readonly highlight: string[];
+  /**
+   * One-sentence, plain-language description of WHAT this message is — leads the
+   * hex so a newcomer can follow the handshake as a story, not a byte dump.
+   */
+  readonly caption?: string;
   /** if the receiving side rejected it, the abort tooltip. */
   aborted?: { reason: string; tooltip: string };
   /** if this card was tampered before delivery. */

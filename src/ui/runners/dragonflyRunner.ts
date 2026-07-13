@@ -55,14 +55,14 @@ export class DragonflyRunner extends StepMachine implements Runner {
     this.stages.push(
       { label: "A derives password element (PE)", run: () => { this.a.derivePE(); return null; } },
       { label: "B derives password element (PE)", run: () => { this.b.derivePE(); return null; } },
-      { label: "A → commit (scalar, element)", run: () => { ac = this.maybeTamper(this.a.commit()); return (acc = this.push(ac, ["scalar", "element"])); } },
-      { label: "B → commit (scalar, element)", run: () => { bc = this.maybeTamper(this.b.commit()); return (bcc = this.push(bc, ["scalar", "element"])); } },
+      { label: "A → commit (scalar, element)", run: () => { ac = this.maybeTamper(this.a.commit()); return (acc = this.push(ac, ["scalar", "element"], "A commits: it sends a scalar and a curve element built from the password-derived point. Neither reveals the password on its own.")); } },
+      { label: "B → commit (scalar, element)", run: () => { bc = this.maybeTamper(this.b.commit()); return (bcc = this.push(bc, ["scalar", "element"], "B sends its matching commit. Combined with A's, and only if the passwords agree, they reconstruct the same shared point.")); } },
       { label: "A receives B's commit", run: () => { this.consuming = bcc; this.a.recvCommit(bc); return null; } },
       { label: "B receives A's commit", run: () => { this.consuming = acc; this.b.recvCommit(ac); return null; } },
       { label: "A derives key", run: () => { this.a.deriveKey(); return null; } },
       { label: "B derives key", run: () => { this.b.deriveKey(); return null; } },
-      { label: "A → confirm", run: () => { acon = this.maybeTamper(this.a.confirm()); return (aconc = this.push(acon, ["confirm"])); } },
-      { label: "B → confirm", run: () => { bcon = this.maybeTamper(this.b.confirm()); return (bconc = this.push(bcon, ["confirm"])); } },
+      { label: "A → confirm", run: () => { acon = this.maybeTamper(this.a.confirm()); return (aconc = this.push(acon, ["confirm"], "A sends a hash-based confirmation over the shared key so B can check they match — the key never crosses.")); } },
+      { label: "B → confirm", run: () => { bcon = this.maybeTamper(this.b.confirm()); return (bconc = this.push(bcon, ["confirm"], "B returns its confirmation; both verify and the handshake confirms.")); } },
       { label: "A verifies B's confirm", run: () => { this.consuming = bconc; this.a.recvConfirm(bcon); return null; } },
       { label: "B verifies A's confirm", run: () => { this.consuming = aconc; this.b.recvConfirm(acon); this.finish(); return null; } },
     );
@@ -80,11 +80,11 @@ export class DragonflyRunner extends StepMachine implements Runner {
   private peerView(p: DragonflyParty, title: string, self: string, peer: string): PeerView {
     const t = p.trace;
     const scratch: ScratchRow[] = [
-      { label: "PE iterations", value: t.peIterations !== undefined ? String(t.peIterations) : "—", secret: false },
-      { label: "scalar (self)", value: t.scalarSelf !== undefined ? bigHex(t.scalarSelf) : "—", secret: false },
-      { label: "ss (shared x)", value: t.ss !== undefined ? bigHex(t.ss) : "—", secret: true },
-      { label: "kck (confirm key)", value: t.kck ? bytesHex(t.kck) : "—", secret: true },
-      { label: "mk (session key)", value: t.mk ? bytesHex(t.mk) : "—", secret: true },
+      { label: "PE iterations", plain: "hunt-and-peck tries", term: "huntpeck", value: t.peIterations !== undefined ? String(t.peIterations) : "—", secret: false },
+      { label: "scalar (self)", plain: "my public share", term: "scalar", value: t.scalarSelf !== undefined ? bigHex(t.scalarSelf) : "—", secret: false },
+      { label: "ss (shared x)", plain: "my raw shared secret", term: "premaster", value: t.ss !== undefined ? bigHex(t.ss) : "—", secret: true },
+      { label: "kck (confirm key)", plain: "my confirmation key", term: "confirmtag", value: t.kck ? bytesHex(t.kck) : "—", secret: true },
+      { label: "mk (session key)", plain: "my session key", term: "isk", value: t.mk ? bytesHex(t.mk) : "—", secret: true },
     ];
     return { title, role: `self "${self}", peer "${peer}"`, scratch };
   }

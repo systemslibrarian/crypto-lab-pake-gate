@@ -62,14 +62,14 @@ export class SrpRunner extends StepMachine implements Runner {
     this.stages.push(
       {
         label: "Client → hello (A)",
-        run: () => { clientHello = this.client.hello(); return this.push(clientHello, ["A"]); },
+        run: () => { clientHello = this.client.hello(); return this.push(clientHello, ["A"], "The client sends its public Diffie–Hellman share A = g^a — useless to an eavesdropper without the password."); },
       },
       {
         label: "Server → hello (salt, B)",
         run: () => {
           const delivered = this.wire.send(clientHello);
           serverHello = this.server.hello(delivered);
-          return this.push(serverHello, ["salt", "B"]);
+          return this.push(serverHello, ["salt", "B"], "The server replies with the public salt and its own share B, blinded by the stored verifier — the password itself is never sent.");
         },
       },
       {
@@ -77,7 +77,7 @@ export class SrpRunner extends StepMachine implements Runner {
         run: () => {
           const delivered = this.wire.send(serverHello);
           clientProof = this.maybeTamper(this.client.proof(delivered));
-          return (clientProofCard = this.push(clientProof, ["M1"]));
+          return (clientProofCard = this.push(clientProof, ["M1"], "The client proves it derived the same secret S by sending a MAC M1 — this is evidence, not the key or the password."));
         },
       },
       {
@@ -86,7 +86,7 @@ export class SrpRunner extends StepMachine implements Runner {
           const delivered = this.wire.send(clientProof);
           this.consuming = clientProofCard;
           serverProof = this.maybeTamper(this.server.proof(delivered));
-          return (serverProofCard = this.push(serverProof, ["M2"]));
+          return (serverProofCard = this.push(serverProof, ["M2"], "The server checks M1, then proves it back with M2 — mutual confirmation that both landed on the same key."));
         },
       },
       {
@@ -114,11 +114,11 @@ export class SrpRunner extends StepMachine implements Runner {
   leftPeer(): PeerView {
     const t = this.client.trace;
     const scratch: ScratchRow[] = [
-      { label: "a (private nonce)", value: t.a !== undefined ? bigHex(t.a) : "—", secret: true },
-      { label: "x = H(salt, H(I:P))", value: t.x !== undefined ? bigHex(t.x) : "—", secret: true },
-      { label: "A = g^a", value: t.A !== undefined ? bigHex(t.A) : "—", secret: false },
-      { label: "u = H(A,B)", value: t.u !== undefined ? bigHex(t.u) : "—", secret: false },
-      { label: "S (premaster)", value: t.S !== undefined ? bigHex(t.S) : "—", secret: true },
+      { label: "a (private nonce)", plain: "my private nonce", term: "nonce", value: t.a !== undefined ? bigHex(t.a) : "—", secret: true },
+      { label: "x = H(salt, H(I:P))", plain: "my password-derived secret", term: "premaster", value: t.x !== undefined ? bigHex(t.x) : "—", secret: true },
+      { label: "A = g^a", plain: "my public share", term: "gpow", value: t.A !== undefined ? bigHex(t.A) : "—", secret: false },
+      { label: "u = H(A,B)", plain: "shared scrambler", value: t.u !== undefined ? bigHex(t.u) : "—", secret: false },
+      { label: "S (premaster)", plain: "my raw shared secret", term: "premaster", value: t.S !== undefined ? bigHex(t.S) : "—", secret: true },
     ];
     return { title: "Client", role: `identity "${this.I}"`, scratch };
   }
@@ -126,11 +126,11 @@ export class SrpRunner extends StepMachine implements Runner {
   rightPeer(): PeerView {
     const t = this.server.trace;
     const scratch: ScratchRow[] = [
-      { label: "stored salt", value: bytesHex(this.record.salt), secret: false },
-      { label: "stored v (verifier)", value: bigHex(this.record.v), secret: true },
-      { label: "b (private nonce)", value: t.b !== undefined ? bigHex(t.b) : "—", secret: true },
-      { label: "B = k·v + g^b", value: t.B !== undefined ? bigHex(t.B) : "—", secret: false },
-      { label: "S (premaster)", value: t.S !== undefined ? bigHex(t.S) : "—", secret: true },
+      { label: "stored salt", plain: "stored salt (public)", term: "salt", value: bytesHex(this.record.salt), secret: false },
+      { label: "stored v (verifier)", plain: "stored verifier (NOT the password)", term: "verifier", value: bigHex(this.record.v), secret: true },
+      { label: "b (private nonce)", plain: "my private nonce", term: "nonce", value: t.b !== undefined ? bigHex(t.b) : "—", secret: true },
+      { label: "B = k·v + g^b", plain: "my public share", term: "gpow", value: t.B !== undefined ? bigHex(t.B) : "—", secret: false },
+      { label: "S (premaster)", plain: "my raw shared secret", term: "premaster", value: t.S !== undefined ? bigHex(t.S) : "—", secret: true },
     ];
     return { title: "Server", role: "holds only {salt, v}", scratch };
   }

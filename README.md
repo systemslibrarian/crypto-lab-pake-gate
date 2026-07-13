@@ -20,6 +20,17 @@ handshake one message at a time, showing the two peers' private scratchpads, the
 (literally everything an on-path observer sees), and each side's derived key — which lights
 green only when both sides match **and** confirm.
 
+**Built for two audiences at once.** The lab opens in a guided *Start here* view — SRP-6a
+only, plain-language scratchpad rows (“my private nonce”, “my public share”), and just
+*Honest run* / *Wrong password* — so a newcomer meets one handshake, not four dense tabs.
+Each message that crosses **animates lifting out of the sender's box and settling on the
+Wire while the secret rows stay put and pulse their lock**, and carries a one-sentence
+plain-language caption (“sends its public Diffie–Hellman share `g^a` — useless without the
+password”). Pressing **Go deeper** reveals the full notation, in-context glossary tooltips
+(scalar, verifier `v`, premaster `S`, Schnorr NIZK, salt…), the tamper / observer / breach
+panels, and the other three protocols. Nothing is dumbed down — the clarity is layered on
+top of the same spec-accurate, test-verified crypto.
+
 | Protocol | Family | What's distinctive | Standard |
 | --- | --- | --- | --- |
 | **SRP-6a** | augmented | server stores a verifier `{salt, v}`, never the password | RFC 2945 / 5054 |
@@ -30,7 +41,9 @@ green only when both sides match **and** confirm.
 Plus a family **taxonomy matrix** (with an OPAQUE / RFC 9807 reference row and a deep link to
 the sibling [OPAQUE Gate](https://systemslibrarian.github.io/crypto-lab-opaque-gate/) lab), a
 curated **tamper** menu, an **offline-grind** simulator contrasting balanced-transcript vs
-stolen-SRP-verifier breach economics, and the **Dragonblood** side-channel comparison.
+stolen-SRP-verifier breach economics, and the **Dragonblood** side-channel comparison — whose
+bars are now **click-to-explain**: pick a candidate to see *why* it took that many
+hunt-and-peck iterations and exactly what the legacy timing difference leaks to an attacker.
 
 ## Run it
 
