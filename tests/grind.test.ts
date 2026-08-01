@@ -32,6 +32,21 @@ describe("Offline-grind asymmetry", () => {
     expect(matches).toEqual([TRUE_PW]); // only the true password matches
   });
 
+  it("stolen SRP verifier: a password outside the wordlist yields NO hit", () => {
+    // Regression guard. The UI's attacker wordlist must be built independently of
+    // the demo's current password — an offline dictionary attack that cannot miss
+    // teaches the opposite of the lesson. A strong password must survive the grind.
+    const p = SRP_TRACK2_4096_SHA256;
+    const strong = "Tr0ub4dor&3-quokka-9917";
+    expect(CANDIDATES).not.toContain(strong);
+    const record = register(p, "arthur", makePassword(strong), randomSalt());
+    const matches = CANDIDATES.filter((guess) => {
+      const x = computeX(p, "arthur", makePassword(guess), record.salt);
+      return computeVerifier(p, x) === record.v;
+    });
+    expect(matches).toEqual([]); // the "no dictionary hit" branch is reachable
+  });
+
   it("balanced transcript: no verifier-shaped value to grind (inconclusive for every guess)", () => {
     // Build an honest J-PAKE transcript.
     const wire = new Wire();

@@ -13,14 +13,30 @@ import { BREACH_ECONOMICS } from "../pake/taxonomy.ts";
 import { makePassword } from "../pake/factories.ts";
 import { toHex } from "../pake/encoding.ts";
 import { bigHex, bytesHex, type ProtocolId } from "./model.ts";
-import { button, el } from "./dom.ts";
+import { button, el, labeledInput } from "./dom.ts";
 
-// A dictionary an attacker might grind. One entry is the "true" demo password so the
-// SRP-verifier race lands a hit; the balanced race still yields nothing.
+// A fixed attacker wordlist. It is deliberately built WITHOUT reference to the
+// password the demo is currently using: the offline attack must be able to miss.
+// "hunter2" is the demo's default password and is in the list, so the default
+// run lands a real hit; type any password outside this list into the header and
+// the same attack honestly finds nothing.
 const DICTIONARY = [
   "password", "hunter2", "letmein", "swordfish", "dragon",
   "correct-horse", "s3cr3t!", "openupplease", "trustno1", "qwerty12",
-];
+] as const;
+
+/** Split a learner-typed candidate list on commas / whitespace. */
+function parseExtraGuesses(raw: string): string[] {
+  const seen = new Set<string>(DICTIONARY);
+  const out: string[] = [];
+  for (const token of raw.split(/[,\s]+/)) {
+    const t = token.trim();
+    if (t.length === 0 || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
 
 // --- On-path observer -------------------------------------------------------
 
@@ -103,7 +119,7 @@ export function renderSrpBreachPanel(
   // Two-column race.
   const race = el("div", { class: "race" });
   race.append(renderBalancedColumn(balancedTranscript, truePassword));
-  race.append(renderVerifierColumn(record, truePassword));
+  race.append(renderVerifierColumn(record));
   section.append(race);
 
   // Breach economics (the three distinct cases) + OPAQUE cross-link.
@@ -130,52 +146,63 @@ function economicsRow(label: string, text: string): HTMLElement {
 
 function renderBalancedColumn(transcript: readonly WireMsg[], truePassword: Password): HTMLElement {
   const col = el("div", { class: "race__col race__col--balanced" }, [
-    el("h3", { class: "race__title", text: "Grind a balanced transcript" }),
-    el("p", { class: "race__sub", text: "A captured balanced-PAKE transcript. Try the dictionary against it." }),
+    el("h3", { class: "race__title", text: "Attack a balanced transcript" }),
+    el("p", { class: "race__sub", text: "A captured balanced-PAKE transcript. There is no verification equation in it, so there is nothing to recompute-and-compare — the only offline move left is to scan the raw bytes for each candidate, which finds nothing." }),
   ]);
   const out = el("div", { class: "race__out" });
-  const counter = el("div", { class: "race__counter", text: "guesses: 0" });
+  const counter = el("div", { class: "race__counter", text: "candidates tested: 0" });
   col.append(counter, out);
   col.append(
-    button("Run offline grind", () => {
+    button("Scan the transcript for each candidate", () => {
       out.replaceChildren();
       let n = 0;
+      let leaks = 0;
       for (const guess of DICTIONARY) {
         n++;
-        // A correctly-executed balanced transcript exposes no offline password test:
-        // the audit is clean and there is nothing to recompute-and-compare offline.
+        // A correctly-executed balanced transcript exposes no offline password test.
+        // All we can do passively is look for the candidate appearing in some
+        // recognized encoding across the wire fields. It should never be there.
         const clean = transcript.length === 0 || auditTranscript(transcript, makePassword(guess)).clean;
+        if (!clean) leaks++;
         out.append(
           el("div", { class: "guess guess--neutral" }, [
             el("code", { text: guess }),
-            el("span", { text: clean ? "can't confirm offline — needs a fresh online interaction" : "unexpected leak — investigate" }),
+            el("span", { text: clean ? "not present on the wire — no offline test exists; needs a fresh online interaction" : "unexpected leak — investigate" }),
           ]),
         );
       }
-      counter.textContent = `guesses: ${n}`;
-      out.append(el("p", { class: "race__verdict race__verdict--neutral", text: "No guess resolved offline. A balanced transcript gives a passive attacker nothing to grind." }));
-      void truePassword; // the true password gives no advantage here either.
+      counter.textContent = `candidates tested: ${n}`;
+      out.append(
+        leaks === 0
+          ? el("p", { class: "race__verdict race__verdict--neutral", text: "Nothing resolved offline. A balanced transcript gives a passive attacker no equation to grind — each guess costs one live handshake against a server that can rate-limit and lock out." })
+          : el("p", { class: "race__verdict race__verdict--amber", text: `${leaks} candidate(s) appeared in the transcript — that is a real leak in this build, not the expected result.` }),
+      );
+      void truePassword; // knowing it confers no offline advantage here either.
     }, { class: "btn--attack" }),
   );
   return col;
 }
 
-function renderVerifierColumn(record: SrpVerifierRecord, truePassword: Password): HTMLElement {
-  // The attacker's list eventually contains the true password; splice it in (dedup)
-  // so the offline recovery lesson lands reliably regardless of the demo password.
-  const dict = DICTIONARY.includes(truePassword as string)
-    ? DICTIONARY
-    : [...DICTIONARY.slice(0, 5), truePassword as string, ...DICTIONARY.slice(5)];
+function renderVerifierColumn(record: SrpVerifierRecord): HTMLElement {
   const col = el("div", { class: "race__col race__col--verifier" }, [
     el("h3", { class: "race__title", text: "Grind the stolen SRP {salt, v}" }),
-    el("p", { class: "race__sub", text: "For each guess recompute v' and test v' == v. This runs at the attacker's own pace, fully offline." }),
+    el("p", { class: "race__sub", text: "For each candidate recompute v' = g^{H(salt, H(I:candidate))} and test v' == v. Real modular exponentiation, at the attacker's own pace, fully offline — no server involved and no rate limit to hit." }),
+    el("p", { class: "race__sub", text: "The wordlist below is fixed and does not know the demo's password. Change the password in the header to something outside it and this attack genuinely finds nothing — the only thing standing between the breached record and the password is whether the password is guessable." }),
   ]);
+  const { wrap, input } = labeledInput("Extra candidates to add to the wordlist (comma or space separated)", {
+    id: "srp-extra-guesses",
+    type: "text",
+    placeholder: "e.g. correct horse battery staple",
+    autocomplete: "off",
+  });
   const out = el("div", { class: "race__out" });
-  const counter = el("div", { class: "race__counter", text: "guesses: 0" });
-  col.append(counter, out);
+  const counter = el("div", { class: "race__counter", text: "candidates tested: 0" });
+  col.append(wrap, counter, out);
   col.append(
     button("Run offline grind", () => {
       out.replaceChildren();
+      const extras = parseExtraGuesses(input.value);
+      const dict: string[] = [...DICTIONARY, ...extras];
       const p = SRP_TRACK2_4096_SHA256;
       let n = 0;
       let hit = false;
@@ -192,11 +219,11 @@ function renderVerifierColumn(record: SrpVerifierRecord, truePassword: Password)
         );
         if (matched) { hit = true; break; }
       }
-      counter.textContent = `guesses: ${n}`;
+      counter.textContent = `candidates tested: ${n}${extras.length > 0 ? ` (${DICTIONARY.length} wordlist + ${extras.length} yours)` : ""}`;
       out.append(
         hit
-          ? el("p", { class: "race__verdict race__verdict--amber", text: "Recovered, but not 'the password from the wire' — the stolen verifier enabled a direct offline dictionary attack." })
-          : el("p", { class: "race__verdict race__verdict--neutral", text: "No dictionary hit (password not in this list) — but the offline test itself is fully available to the attacker." }),
+          ? el("p", { class: "race__verdict race__verdict--amber", text: "Recovered — and note it was not 'the password read off the wire'. The stolen verifier handed the attacker a free offline test, and this candidate satisfied it." })
+          : el("p", { class: "race__verdict race__verdict--neutral", text: `No match in ${n} candidates. The attacker has learned only that the password is outside this list — and can keep going, for free, at billions of candidates per GPU-day. That is the real cost of a breached augmented-PAKE verifier: it does not stop the attack, it only makes it as expensive as your password is unguessable.` }),
       );
     }, { class: "btn--attack" }),
   );
