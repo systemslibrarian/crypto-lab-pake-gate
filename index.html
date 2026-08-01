@@ -44,11 +44,6 @@
     </style>
   </head>
   <body>
-<!-- BEGIN crypto-lab shared header — managed; edit shared-header.html + re-run reapply-header.py
-     Identical on every lab. Self-contained styles. Accents use each demo's own
-     --accent CSS variable (teal #35d6bb fallback). The ONLY per-repo value is the
-     repo name (crypto-lab-pake-gate) in the GitHub link.
-     Source of truth: github.com/systemslibrarian/crypto-lab/shared-header.html -->
 <style>
   .cl-topbar{
     /* The bar is always dark (#0b1512) regardless of page theme, so header
@@ -160,8 +155,15 @@
     else dedupeBanner();
   })();
 </script>
-<!-- END crypto-lab shared header -->
-    <div id="app"></div>
+    <!-- <main>, not a div: the shared topbar above is the banner landmark and
+         this is the main landmark the skip link and screen readers target. -->
+    <main id="app"></main>
+    <footer class="site-footer">
+      <p class="site-footer__text">
+        Educational demo — teaching parameters, not production cryptography.
+        <a href="https://github.com/systemslibrarian/crypto-lab-pake-gate" rel="noopener noreferrer">View source on GitHub</a>
+      </p>
+    </footer>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
