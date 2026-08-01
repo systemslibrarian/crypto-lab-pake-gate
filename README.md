@@ -1,11 +1,15 @@
-# PAKE Gate 🤝
+# PAKE Gate
 
 **SRP-6a · J-PAKE · CPace · Dragonfly (RFC 7664) — the PAKE family, side by side.**
 
 A live, in-browser tour of Password-Authenticated Key Exchange: how two parties turn a
 shared, low-entropy **password** into a strong shared key **without the password (or
-anything an attacker could grind offline) ever crossing the wire**. Real WebCrypto and
-real group arithmetic — no backend, no network, nothing persisted.
+anything an attacker could grind offline) ever crossing the wire**. Real group
+arithmetic and real hash primitives — SHA-1/256/512, HMAC and HKDF come from
+`@noble/hashes` rather than WebCrypto's async SubtleCrypto (same primitives,
+synchronous, so the engines and KATs stay deterministic); session randomness comes from
+the platform CSPRNG (WebCrypto in the browser). No backend, no network, nothing
+persisted.
 
 > [!WARNING]
 > **This is a teaching/demo lab, not production authentication code.** The engines are
@@ -33,7 +37,7 @@ top of the same spec-accurate, test-verified crypto.
 
 | Protocol | Family | What's distinctive | Standard |
 | --- | --- | --- | --- |
-| **SRP-6a** | augmented | server stores a verifier `{salt, v}`, never the password | RFC 2945 / 5054 |
+| **SRP-6a** | augmented | server stores a verifier `{salt, v}`, never the password | RFC 5054 (Informational); RFC 2945 is the earlier SRP-3 |
 | **J-PAKE** | balanced | both peers share the password; Schnorr NIZK proofs, no verifier stored | RFC 8236 (+ RFC 8235) |
 | **CPace** | balanced | one-round; generator derived from password + session context | draft-irtf-cfrg-cpace-21 (Internet-Draft, **not** an RFC) |
 | **Dragonfly** | balanced | hunting-and-pecking password→point (the surface Dragonblood attacked) | RFC 7664 (family behind WPA3 SAE) |

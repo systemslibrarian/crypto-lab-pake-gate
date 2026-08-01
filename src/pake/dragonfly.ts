@@ -1,9 +1,11 @@
 // Dragonfly (balanced PAKE), RFC 7664 ECC profile over NIST P-256. This is Dragonfly
 // proper — the family underlying WPA3's SAE — NOT a WPA3 SAE implementation (no IEEE
 // 802.11 framing). The honest handshake uses the ACCURATE RFC 7664 derivation with a
-// minimum-iteration parameter k (may run past k until a valid PE is found) and a
-// blinded quadratic-residue test. The legacy early-exit and fixed-work TEACHING
-// models live in dragonblood.ts and never produce these honest-run keys (invariant #8).
+// minimum-iteration parameter k (may run past k until a valid PE is found). Its
+// quadratic-residue test is NOT blinded — RFC 7664 §3.2.1 recommends blinding it, and
+// this demo does not implement that; see derivePasswordElement. The legacy early-exit
+// and fixed-work TEACHING models live in dragonblood.ts and never produce these
+// honest-run keys (invariant #8).
 //
 // Frozen profile (tests/vectors/README.md):
 //   · Curve P-256, H=SHA-256, KDF = SP800-108 counter/HMAC-SHA-256.

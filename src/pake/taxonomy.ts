@@ -34,7 +34,8 @@ export const TAXONOMY: TaxonomyRow[] = [
     rounds: "2 (client hello / server hello, then mutual proof)",
     quantumResistant: false,
     constructionFamily: "DH-group",
-    standardization: "RFC 2945 / RFC 5054 (Informational)",
+    standardization:
+      "RFC 5054 (Informational) — its k = H(N | PAD(g)) is the SRP-6a arithmetic this lab runs; RFC 2945 (Proposed Standard) is the earlier SRP-3 with SHA_Interleave",
     deployment: "iCloud Keychain; a former TLS-SRP ciphersuite",
     reachFor:
       "an augmented PAKE with wide deployment history where the server must not hold the password.",
