@@ -15,6 +15,9 @@
   --ink-faint: #9696a0; /* AA on --panel-2 #24242f (was #85858f, 4.20:1) */
   --line: #33333f;
   --line-strong: #45454f;
+  /* text-entry control boundary — WCAG 1.4.11 needs >=3:1; this hits 3.7:1 on
+     the --panel-2 fill and 4.1:1 on the surrounding --panel. */
+  --control-line: #7c7c88;
 
   --accent-strong: #c084fc; /* passes on dark --bg (6.9:1) */
 
@@ -49,6 +52,9 @@
   --ink-faint: #67676f; /* AA on --bg (was #8a8a95, 3.2:1) */
   --line: #dcdce4;
   --line-strong: #c3c3ce;
+  /* text-entry control boundary — 4.1:1 on the --panel-2 fill, 4.6:1 on the
+     white --panel (was --line-strong #c3c3ce, 1.5:1 / 1.75:1). */
+  --control-line: #74747f;
 
   /* darker accent for TEXT/links on light bg — raw --accent #c084fc is only 2.5:1.
      --accent itself stays for decorative borders/backgrounds. */
@@ -168,7 +174,7 @@ body {
 .field__input {
   font: inherit;
   padding: 0.45rem 0.6rem;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--control-line);
   border-radius: 8px;
   background: var(--panel-2);
   color: var(--ink);
