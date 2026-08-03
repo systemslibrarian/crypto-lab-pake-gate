@@ -226,6 +226,10 @@ body {
 .status__pill--ok { background: var(--ok-bg); border-color: var(--ok-line); color: var(--ok); }
 .status__pill--alarm { background: var(--alarm-bg); border-color: var(--alarm-line); color: var(--alarm); }
 .status__expect { color: var(--ink-soft); font-size: 0.85rem; }
+/* The "previous result discarded" note. Reuses --ink (AA on every surface in
+   both themes) rather than introducing a colour, and leans on weight so the
+   emphasis is not colour-alone signalling (WCAG 1.4.1). */
+.status__expect--stale { color: var(--ink); font-weight: 700; }
 
 /* --- split view --- */
 .split {

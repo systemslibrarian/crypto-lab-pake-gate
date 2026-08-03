@@ -82,7 +82,13 @@ export class TabView {
   private pwPrimary = "";
   private pwSecondary = "";
 
+  // True when a completed/in-flight run was discarded because a password field
+  // changed under it. Drives the "previous result discarded" note; cleared the
+  // moment a new run starts.
+  private invalidated = false;
+
   // element handles for partial re-render.
+  private stepBtn: HTMLButtonElement | null = null;
   private peerLeftHost!: HTMLElement;
   private peerRightHost!: HTMLElement;
   private wireHost!: HTMLElement;
@@ -135,6 +141,7 @@ export class TabView {
     this.cards = [];
     this.aux = "none";
     this.activeLauncher = null;
+    this.invalidated = false;
     this.runner = this.freshRunner();
     this.runner.setTamper(this.armedTamper);
     this.rerender();
@@ -211,7 +218,7 @@ export class TabView {
       placeholder: "hunter2",
       autocomplete: "off",
     });
-    p.input.addEventListener("input", () => { this.pwPrimary = p.input.value; });
+    p.input.addEventListener("input", () => { this.pwPrimary = p.input.value; this.invalidateRun(); });
     fields.append(p.wrap);
 
     if (this.protocol === "srp6a") {
@@ -228,7 +235,7 @@ export class TabView {
         placeholder: "(same as A)",
         autocomplete: "off",
       });
-      s.input.addEventListener("input", () => { this.pwSecondary = s.input.value; });
+      s.input.addEventListener("input", () => { this.pwSecondary = s.input.value; this.invalidateRun(); });
       fields.append(s.wrap);
     }
     this.controlsHost.append(fields);
@@ -275,6 +282,7 @@ export class TabView {
       disabled: !this.runner.hasNext(),
       title: "Advance exactly one protocol message",
     });
+    this.stepBtn = stepBtn;
     const resetBtn = button("Reset", () => this.reset(true), { class: "btn--ghost" });
     const wireToggle = el("label", { class: "toggle" }, [
       (() => {
@@ -314,8 +322,39 @@ export class TabView {
     }, 1400);
   }
 
+  /**
+   * A verdict must never outlive the input it was computed from.
+   *
+   * Editing a password field after a run used to leave the whole result surface
+   * intact — the green "✓ Confirmed" pill, the "Key confirmed" badge, both
+   * "✓ confirmed" key flags and both fingerprints kept describing a handshake
+   * for a password that was no longer in the box. The runner captures the
+   * password at construction, so the only honest response to an edit is to
+   * throw the run away and say so.
+   *
+   * Controls are deliberately NOT rebuilt here: `renderControls` recreates the
+   * input elements, which would drop focus on every keystroke.
+   */
+  private invalidateRun(): void {
+    if (this.cards.length === 0 && this.runner.status().kind === "idle") return;
+    this.cards = [];
+    this.aux = "none";
+    this.activeLauncher = null;
+    this.newestIndex = -1;
+    this.publisher = null;
+    this.invalidated = true;
+    this.runner = this.freshRunner();
+    this.runner.setTamper(this.armedTamper);
+    for (const b of this.controlsHost.querySelectorAll(".btn--launcher")) {
+      b.classList.remove("is-active");
+    }
+    if (this.stepBtn) this.stepBtn.disabled = !this.runner.hasNext();
+    this.renderBody();
+  }
+
   private doStep(): void {
     if (!this.runner.hasNext()) return;
+    this.invalidated = false;
     const { card } = this.runner.step();
     this.addCard(card);
     this.rerender();
@@ -334,6 +373,7 @@ export class TabView {
 
   private runLauncher(id: LauncherId): void {
     this.activeLauncher = id;
+    this.invalidated = false;
     switch (id) {
       case "honest": {
         const good = (this.pwPrimary || "hunter2").replace(/-WRONG$/, "");
@@ -393,6 +433,7 @@ export class TabView {
 
   private armTamper(op: TamperOp | null): void {
     this.armedTamper = op;
+    this.invalidated = false;
     // arming requires a fresh run so the target step is still ahead.
     this.cards = [];
     this.aux = "none";
@@ -427,6 +468,11 @@ export class TabView {
 
   private rerender(): void {
     this.renderControls();
+    this.renderBody();
+  }
+
+  /** Everything except the controls row — safe to run while an input has focus. */
+  private renderBody(): void {
     this.renderStatus();
     this.renderTamperMenu();
     this.renderPeers();
@@ -452,6 +498,14 @@ export class TabView {
     else if (st.kind === "aborted") { cls += " status__pill--alarm"; text = `⚠ Aborted — ${st.message}`; }
     else if (st.kind === "mismatch") { cls += " status__pill--alarm"; text = `⚠ ${st.message}`; }
     this.statusHost.append(el("span", { class: cls, text }));
+    if (this.invalidated) {
+      this.statusHost.append(
+        el("span", {
+          class: "status__expect status__expect--stale",
+          text: "Password changed — the previous result was discarded. Run it again.",
+        }),
+      );
+    }
     if (this.activeLauncher) {
       const l = launchersFor(this.protocol).find((x) => x.id === this.activeLauncher);
       if (l) this.statusHost.append(el("span", { class: "status__expect", text: `Expected: ${l.expect}` }));
