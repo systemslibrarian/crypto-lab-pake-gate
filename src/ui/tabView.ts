@@ -7,6 +7,8 @@ import type { Password, WireMsg } from "../pake/types.ts";
 import type { SrpVerifierRecord } from "../pake/srp6a.ts";
 import { button, clear, el, labeledInput } from "./dom.ts";
 import {
+  DEMO_ID_A,
+  DEMO_ID_B,
   type ProtocolId,
   type Runner,
   type TamperOp,
@@ -28,8 +30,8 @@ import {
 import { renderDragonbloodPanel } from "./dragonbloodPanel.ts";
 import { TAXONOMY } from "../pake/taxonomy.ts";
 
-const ID_A = "alice@example";
-const ID_B = "bob@example";
+const ID_A = DEMO_ID_A;
+const ID_B = DEMO_ID_B;
 
 // Per-tab "what you are actually watching here" — the concrete demonstration, not the
 // abstract definition (that lives in the taxonomy matrix below the tabs).

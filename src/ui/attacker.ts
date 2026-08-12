@@ -99,7 +99,14 @@ function spaced(hex: string): string {
 export function renderSrpBreachPanel(
   record: SrpVerifierRecord,
   truePassword: Password,
-  balancedTranscript: readonly WireMsg[],
+  /**
+   * The transcript of the run currently on screen. This panel only ever exists on
+   * the SRP tab, so this is an SRP transcript — it is NOT a J-PAKE / CPace /
+   * Dragonfly transcript and the left column must never label it as one. It is also
+   * EMPTY until a handshake has been run, which the column has to say rather than
+   * reporting ten clean candidates against zero bytes.
+   */
+  passiveTranscript: readonly WireMsg[],
 ): HTMLElement {
   const section = el("section", { class: "breach", "aria-labelledby": "breach-h" }, [
     el("h2", { id: "breach-h", class: "breach__title", text: "Server breach — the stolen record is NOT the password" }),
@@ -118,7 +125,7 @@ export function renderSrpBreachPanel(
 
   // Two-column race.
   const race = el("div", { class: "race" });
-  race.append(renderBalancedColumn(balancedTranscript, truePassword));
+  race.append(renderPassiveColumn(passiveTranscript, truePassword));
   race.append(renderVerifierColumn(record));
   section.append(race);
 
@@ -144,38 +151,80 @@ function economicsRow(label: string, text: string): HTMLElement {
   ]);
 }
 
-function renderBalancedColumn(transcript: readonly WireMsg[], truePassword: Password): HTMLElement {
+/** How much material a candidate scan actually has to work with. */
+function transcriptSize(transcript: readonly WireMsg[]): { fields: number; bytes: number } {
+  let fields = 0;
+  let bytes = 0;
+  for (const msg of transcript) {
+    for (const value of Object.values(msg.fields)) {
+      if (typeof value !== "string") continue;
+      fields++;
+      bytes += /^[0-9a-fA-F]*$/.test(value) && value.length % 2 === 0 ? value.length / 2 : value.length;
+    }
+  }
+  return { fields, bytes };
+}
+
+/**
+ * LEFT column: the passive wire transcript of the run on screen.
+ *
+ * Two things this column must not do, both of which it used to.
+ *
+ * 1. Call the artifact a "balanced-PAKE transcript". This panel exists only on the
+ *    SRP tab and is handed the SRP run's own transcript, so the bytes below are
+ *    `client-hello / server-hello / client-proof / server-proof` — SRP, not J-PAKE
+ *    or CPace or Dragonfly.
+ * 2. Report a result when there is nothing to scan. "Server breach" is reachable
+ *    without running a handshake first, and the scan then examined **0 wire fields**
+ *    yet printed ten "not present on the wire — no offline test exists" rows and the
+ *    verdict "Nothing resolved offline". That is a property asserted about the empty
+ *    set.
+ *
+ * What the scan computes is a literal-encoding leak audit (UTF-8 / UTF-16 / hex /
+ * base64 substring search). "A passive transcript provides no offline password test"
+ * is a statement about the PAKE security model, not a result this loop can produce,
+ * so it is stated separately and labelled as such.
+ */
+function renderPassiveColumn(transcript: readonly WireMsg[], truePassword: Password): HTMLElement {
+  const size = transcriptSize(transcript);
   const col = el("div", { class: "race__col race__col--balanced" }, [
-    el("h3", { class: "race__title", text: "Attack a balanced transcript" }),
-    el("p", { class: "race__sub", text: "A captured balanced-PAKE transcript. There is no verification equation in it, so there is nothing to recompute-and-compare — the only offline move left is to scan the raw bytes for each candidate, which finds nothing." }),
+    el("h3", { class: "race__title", text: "Scan the passive SRP transcript" }),
+    el("p", { class: "race__sub", text: "The wire transcript of the SRP run currently on screen. It carries no verifier record, so it offers no recompute-and-compare equation — the only offline move a passive attacker has here is to look for each candidate appearing literally, in some recognized encoding, across the wire fields." }),
   ]);
   const out = el("div", { class: "race__out" });
   const counter = el("div", { class: "race__counter", text: "candidates tested: 0" });
   col.append(counter, out);
   col.append(
-    button("Scan the transcript for each candidate", () => {
+    button("Scan for obvious password encodings", () => {
       out.replaceChildren();
+      if (size.fields === 0) {
+        counter.textContent = "candidates tested: 0 — nothing captured to scan";
+        out.append(
+          el("p", { class: "race__verdict race__verdict--amber", text: "No transcript captured yet: 0 wire fields, 0 bytes. Run a handshake first — a scan of nothing is not a clean result." }),
+        );
+        return;
+      }
       let n = 0;
       let leaks = 0;
       for (const guess of DICTIONARY) {
         n++;
-        // A correctly-executed balanced transcript exposes no offline password test.
-        // All we can do passively is look for the candidate appearing in some
-        // recognized encoding across the wire fields. It should never be there.
-        const clean = transcript.length === 0 || auditTranscript(transcript, makePassword(guess)).clean;
+        const clean = auditTranscript(transcript, makePassword(guess)).clean;
         if (!clean) leaks++;
         out.append(
           el("div", { class: "guess guess--neutral" }, [
             el("code", { text: guess }),
-            el("span", { text: clean ? "not present on the wire — no offline test exists; needs a fresh online interaction" : "unexpected leak — investigate" }),
+            el("span", { text: clean ? "no literal encoding found in any wire field" : "unexpected leak — investigate" }),
           ]),
         );
       }
       counter.textContent = `candidates tested: ${n}`;
       out.append(
         leaks === 0
-          ? el("p", { class: "race__verdict race__verdict--neutral", text: "Nothing resolved offline. A balanced transcript gives a passive attacker no equation to grind — each guess costs one live handshake against a server that can rate-limit and lock out." })
+          ? el("p", { class: "race__verdict race__verdict--neutral", text: `No literal encoding leak found: ${n} candidates checked against ${size.fields} wire field(s), ${size.bytes} bytes, in 5 encodings.` })
           : el("p", { class: "race__verdict race__verdict--amber", text: `${leaks} candidate(s) appeared in the transcript — that is a real leak in this build, not the expected result.` }),
+      );
+      out.append(
+        el("p", { class: "race__claim", text: "That is a leak audit, not a proof. The stronger claim — that a passive PAKE transcript gives an attacker no offline password test at all, so every guess costs one live handshake against a server that can rate-limit — rests on the protocol's security analysis (RFC 5054 / RFC 8236 / draft-irtf-cfrg-cpace-21), not on this byte scan. A password can be absent as a literal byte sequence while a flawed protocol still leaks a password-dependent test." }),
       );
       void truePassword; // knowing it confers no offline advantage here either.
     }, { class: "btn--attack" }),
@@ -206,6 +255,7 @@ function renderVerifierColumn(record: SrpVerifierRecord): HTMLElement {
       const p = SRP_TRACK2_4096_SHA256;
       let n = 0;
       let hit = false;
+      const t0 = performance.now();
       for (const guess of dict) {
         n++;
         const x = computeX(p, record.I, makePassword(guess), record.salt);
@@ -219,12 +269,19 @@ function renderVerifierColumn(record: SrpVerifierRecord): HTMLElement {
         );
         if (matched) { hit = true; break; }
       }
+      const elapsedMs = performance.now() - t0;
       counter.textContent = `candidates tested: ${n}${extras.length > 0 ? ` (${DICTIONARY.length} wordlist + ${extras.length} yours)` : ""}`;
+      // The rate is MEASURED from the loop that just ran, in this tab, on this
+      // machine. It used to read "billions of candidates per GPU-day" — a figure
+      // nothing in the lab computes and nothing here can support.
+      const perSec = elapsedMs > 0 ? (n / elapsedMs) * 1000 : 0;
+      const rate = `${n} candidate${n === 1 ? "" : "s"} in ${elapsedMs.toFixed(0)} ms — about ${perSec.toFixed(0)} per second (${(perSec * 86400).toExponential(1)} per day) on one thread in this browser tab. Local demonstration speed, not a GPU benchmark: each candidate here is one 4096-bit modular exponentiation, and a real attacker parallelises it across cores and machines.`;
       out.append(
         hit
           ? el("p", { class: "race__verdict race__verdict--amber", text: "Recovered — and note it was not 'the password read off the wire'. The stolen verifier handed the attacker a free offline test, and this candidate satisfied it." })
-          : el("p", { class: "race__verdict race__verdict--neutral", text: `No match in ${n} candidates. The attacker has learned only that the password is outside this list — and can keep going, for free, at billions of candidates per GPU-day. That is the real cost of a breached augmented-PAKE verifier: it does not stop the attack, it only makes it as expensive as your password is unguessable.` }),
+          : el("p", { class: "race__verdict race__verdict--neutral", text: `No match in ${n} candidates. The attacker has learned only that the password is outside this list — and can keep going, offline, at its own pace with no server to rate-limit it. That is the real cost of a breached augmented-PAKE verifier: it does not stop the attack, it only makes it as expensive as your password is unguessable.` }),
       );
+      out.append(el("p", { class: "race__rate", text: rate }));
     }, { class: "btn--attack" }),
   );
   return col;

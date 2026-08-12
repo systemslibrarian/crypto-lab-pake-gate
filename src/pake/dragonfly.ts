@@ -1,7 +1,19 @@
-// Dragonfly (balanced PAKE), RFC 7664 ECC profile over NIST P-256. This is Dragonfly
-// proper — the family underlying WPA3's SAE — NOT a WPA3 SAE implementation (no IEEE
-// 802.11 framing). The honest handshake uses the ACCURATE RFC 7664 derivation with a
-// minimum-iteration parameter k (may run past k until a valid PE is found). Its
+// Dragonfly (balanced PAKE), an RFC 7664-DERIVED ECC profile over NIST P-256. This is
+// Dragonfly proper — the family underlying WPA3's SAE — NOT a WPA3 SAE implementation
+// (no IEEE 802.11 framing).
+//
+// This is a PINNED PAKE-Gate profile, not a literal reproduction of RFC 7664 §3.2.1.
+// Three deliberate, documented deviations (tests/vectors/README.md); the Python KAT
+// generator pins the SAME profile, so TS/Python agreement does not by itself prove
+// RFC fidelity:
+//   1. identity input — uint16(len)||NFC(id) blobs, ordered by their encoded value;
+//      the RFC orders the raw identities (max(A,B) || min(A,B)).
+//   2. y-parity — chosen from the low bit of `temp` (the KDF output); the RFC saves
+//      the low bit of `base` and uses that.
+//   3. KDF label — the application-specific "Dragonfly-PAKE-Gate-PE-v1"; the RFC uses
+//      "Dragonfly Hunting And Pecking".
+// The hunting-and-pecking STRUCTURE is the RFC's: a minimum-iteration parameter k,
+// keeping the first valid candidate, no early exit. Its
 // quadratic-residue test is NOT blinded — RFC 7664 §3.2.1 recommends blinding it, and
 // this demo does not implement that; see derivePasswordElement. The legacy early-exit
 // and fixed-work TEACHING models live in dragonblood.ts and never produce these
@@ -93,8 +105,10 @@ export interface PeResult {
 }
 
 /**
- * Accurate RFC 7664 hunting-and-pecking: at least k iterations, continuing past k
- * until a valid PE is found; keeps the FIRST valid candidate (no early exit). The QR
+ * Hunting-and-pecking with the RFC 7664 §3.2.1 STRUCTURE (at least k iterations,
+ * continuing past k until a valid PE is found; keeps the FIRST valid candidate, no
+ * early exit) over this lab's pinned profile — see the three documented deviations
+ * in the module header, which change the derived PE bytes. The QR
  * test here is a straightforward Legendre-style check; RFC 7664 recommends blinding
  * it, which does not change the result (only the honest run's side-channel profile,
  * which is the subject of dragonblood.ts, not this function).
@@ -121,7 +135,8 @@ export function derivePasswordElement(
       const rhs = curveRhs(seed);
       const y = sqrtModP(rhs);
       if (y !== null) {
-        // y-parity chosen by the low bit of temp (RFC 7664 uses a seed bit).
+        // Profile deviation 2: y-parity from the low bit of temp. RFC 7664 saves the
+        // low bit of `base` instead, which yields a different PE.
         const wantOdd = (temp[temp.length - 1]! & 1) === 1;
         const yFinal = (y & 1n) === (wantOdd ? 1n : 0n) ? y : P256_FIELD_P - y;
         found = P256.Point.fromAffine({ x: seed, y: yFinal });
@@ -138,6 +153,57 @@ export function derivePasswordElement(
   }
 }
 
+export interface HuntScan {
+  /** 1-based counter of the first valid password element, or null within the bound. */
+  readonly firstValidAt: number | null;
+  /**
+   * How many hunt-and-peck iterations the loop ACTUALLY executed. This is the
+   * side-channel observable, and it is counted by the loop rather than assumed:
+   * an early-exit scan reports the counter it stopped at, a fixed-work scan
+   * reports the full bound because it really ran that far.
+   */
+  readonly iterationsPerformed: number;
+}
+
+/**
+ * One hunt-and-peck scan over `[1, maxCounter]`.
+ *
+ * `earlyExit: true` models the LEGACY Dragonfly loop — it returns the moment a
+ * valid candidate appears, so the work it did is password-dependent. That
+ * dependency is the Dragonblood leak.
+ *
+ * `earlyExit: false` models the FIXED-WORK teaching variant — it keeps iterating to
+ * the bound whatever it finds. Its `iterationsPerformed` is flat across passwords
+ * because the loop genuinely runs that far, which is the property the mitigation
+ * panel claims; the panel must be able to observe it, not be handed a constant.
+ */
+export function huntAndPeckScan(
+  idA: string,
+  idB: string,
+  password: Password,
+  opts: { maxCounter?: number; earlyExit?: boolean } = {},
+): HuntScan {
+  const maxCounter = opts.maxCounter ?? 255;
+  const earlyExit = opts.earlyExit ?? true;
+  const eA = encodeId(idA);
+  const eB = encodeId(idB);
+  const [hi, lo] = os2ip(eA) >= os2ip(eB) ? [eA, eB] : [eB, eA];
+  const pw = utf8Nfc(password);
+  let firstValidAt: number | null = null;
+  let iterationsPerformed = 0;
+  for (let counter = 1; counter <= maxCounter; counter++) {
+    iterationsPerformed = counter;
+    const base = SHA256(hi, lo, pw, Uint8Array.of(counter & 0xff));
+    const temp = kdf800108(base, PE_LABEL, new Uint8Array(0), 320);
+    const seed = (os2ip(temp) % (P256_FIELD_P - 1n)) + 1n;
+    if (firstValidAt === null && seed < P256_FIELD_P && sqrtModP(curveRhs(seed)) !== null) {
+      firstValidAt = counter;
+      if (earlyExit) break;
+    }
+  }
+  return { firstValidAt, iterationsPerformed };
+}
+
 /**
  * The 1-based counter at which the first valid password element appears — the
  * password-dependent quantity the Dragonblood timing/cache side-channel recovers.
@@ -150,17 +216,7 @@ export function firstValidCounter(
   password: Password,
   maxCounter = 255,
 ): number | null {
-  const eA = encodeId(idA);
-  const eB = encodeId(idB);
-  const [hi, lo] = os2ip(eA) >= os2ip(eB) ? [eA, eB] : [eB, eA];
-  const pw = utf8Nfc(password);
-  for (let counter = 1; counter <= maxCounter; counter++) {
-    const base = SHA256(hi, lo, pw, Uint8Array.of(counter & 0xff));
-    const temp = kdf800108(base, PE_LABEL, new Uint8Array(0), 320);
-    const seed = (os2ip(temp) % (P256_FIELD_P - 1n)) + 1n;
-    if (seed < P256_FIELD_P && sqrtModP(curveRhs(seed)) !== null) return counter;
-  }
-  return null;
+  return huntAndPeckScan(idA, idB, password, { maxCounter, earlyExit: true }).firstValidAt;
 }
 
 export interface DragonflyNonces {

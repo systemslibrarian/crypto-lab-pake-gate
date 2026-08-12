@@ -436,17 +436,48 @@ test('the SRP breach panel dumps the verifier, and the grind reports what it tes
   expect(
     ((await col2.locator('.race__counter').textContent()) ?? '').trim(),
   ).toContain(`candidates tested: ${n2}`);
+
+  // Regression: the no-match verdict used to promise the attacker "billions of
+  // candidates per GPU-day" — a figure nothing in this lab computes. The panel must
+  // now quote a rate it MEASURED from the grind that just ran, over the candidates
+  // it actually tested.
+  const verdict = ((await col2.locator('.race__verdict').textContent()) ?? '').replace(/\s+/g, ' ');
+  expect(verdict, 'an unsupported hardware figure must not be asserted').not.toMatch(/GPU-day/i);
+  expect(verdict, 'an unsupported hardware figure must not be asserted').not.toMatch(/billions/i);
+
+  const rate = ((await col2.locator('.race__rate').textContent()) ?? '').replace(/\s+/g, ' ');
+  expect(rate, 'the measured rate must be reported').not.toBe('');
+  expect(rate).toContain(`${n2} candidates in `);
+  const perSec = /about (\d+) per second/.exec(rate);
+  expect(perSec, `no measured per-second rate in: ${rate}`).not.toBeNull();
+  expect(
+    Number(perSec![1]),
+    'the measured rate must be a real positive number, not a placeholder',
+  ).toBeGreaterThan(0);
+  expect(rate, 'and it must be labelled for what it is').toContain(
+    'not a GPU benchmark',
+  );
 });
 
-test('the balanced-transcript column finds nothing offline', async ({ page }) => {
+/** Every hex/string field on the wire — what a candidate scan actually has to read. */
+async function wireFieldCount(page: Page): Promise<number> {
+  return panel(page).locator('.wcard .wfield').count();
+}
+
+test('the passive-transcript scan reports what it read, and finds no literal encoding', async ({
+  page,
+}) => {
   test.slow();
   await page.goto('/');
   await goDeeper(page);
   await panel(page).getByRole('button', { name: 'Honest run', exact: true }).click();
+  const fields = await wireFieldCount(page);
+  expect(fields, 'an honest run must put fields on the wire to scan').toBeGreaterThan(0);
+
   await panel(page).getByRole('button', { name: 'Server breach', exact: true }).click();
 
   const col = panel(page).locator('.race__col--balanced');
-  await col.getByRole('button', { name: 'Scan the transcript for each candidate' }).click();
+  await col.getByRole('button', { name: 'Scan for obvious password encodings' }).click();
   await expect(col.locator('.race__verdict')).toBeVisible({ timeout: 60_000 });
 
   const guesses = await col.locator('.guess').count();
@@ -455,10 +486,102 @@ test('the balanced-transcript column finds nothing offline', async ({ page }) =>
     `candidates tested: ${guesses}`,
   );
   await expect(col.locator('.race__verdict')).toHaveClass(/race__verdict--neutral/);
-  await expect(col.locator('.race__verdict')).toContainText('Nothing resolved offline');
+
+  // The verdict must be about the scan that ran: the candidate count and the number
+  // of wire fields it read, both quoted, and the field count must match the wire.
+  const verdict = ((await col.locator('.race__verdict').textContent()) ?? '').replace(/\s+/g, ' ');
+  expect(verdict).toContain('No literal encoding leak found');
+  expect(verdict, 'the verdict must say how many candidates it checked').toContain(
+    `${guesses} candidates`,
+  );
+  expect(
+    verdict,
+    'the verdict must say how much transcript it read, and agree with the wire',
+  ).toContain(`${fields} wire field`);
+
+  // ...and the stronger security claim must be attributed to protocol analysis, not
+  // produced by the byte scan.
+  await expect(col.locator('.race__claim')).toContainText('leak audit, not a proof');
+
   expect(await col.innerText(), 'a leak here would be a real bug, not the lesson').not.toContain(
     'unexpected leak',
   );
+});
+
+/**
+ * Regression: this panel exists only on the SRP tab and is handed the SRP run's own
+ * transcript, yet the left column called it "A captured balanced-PAKE transcript".
+ * The old test ran an honest handshake first and only checked that the scan came
+ * back clean, so it never looked at what the column said the bytes were.
+ */
+test('regression: the passive column never calls the SRP transcript a balanced-PAKE one', async ({
+  page,
+}) => {
+  test.slow();
+  await page.goto('/');
+  await goDeeper(page);
+  await panel(page).getByRole('button', { name: 'Honest run', exact: true }).click();
+
+  // Establish what is actually on the wire: an SRP transcript.
+  const steps = await panel(page).locator('.wcard .wcard__step').allTextContents();
+  expect(steps.length, 'the run must have produced a transcript').toBeGreaterThan(0);
+  expect(steps).toEqual(['client-hello', 'server-hello', 'client-proof', 'server-proof']);
+
+  await panel(page).getByRole('button', { name: 'Server breach', exact: true }).click();
+  const col = panel(page).locator('.race__col--balanced');
+  const text = (await col.innerText()).replace(/\s+/g, ' ');
+  expect(text, 'an SRP transcript must not be described as a balanced-PAKE one').not.toMatch(
+    /balanced[- ]PAKE transcript/i,
+  );
+  expect(text, 'the column must name the protocol it is actually showing').toContain('SRP');
+});
+
+/**
+ * Regression: "Server breach" is reachable without running a handshake, and the scan
+ * then read **0 wire fields** yet printed "candidates tested: 10", ten "not present
+ * on the wire — no offline test exists" rows, and the verdict "Nothing resolved
+ * offline". A property asserted about the empty set. Two clicks from first paint.
+ */
+test('regression: scanning an empty transcript must not report a clean result', async ({
+  page,
+}) => {
+  test.slow();
+  await page.goto('/');
+  await goDeeper(page);
+
+  // Deliberately no handshake.
+  await expect(panel(page).locator('.wcard')).toHaveCount(0);
+  await expect(panel(page).locator('.wire__empty')).toBeVisible();
+  await panel(page).getByRole('button', { name: 'Server breach', exact: true }).click();
+
+  const col = panel(page).locator('.race__col--balanced');
+  await col.getByRole('button', { name: 'Scan for obvious password encodings' }).click();
+  await expect(col.locator('.race__verdict')).toBeVisible({ timeout: 60_000 });
+
+  const text = (await col.innerText()).replace(/\s+/g, ' ');
+  expect(
+    await col.locator('.guess').count(),
+    'no candidate can be cleared against a transcript that does not exist',
+  ).toBe(0);
+  expect(text, 'a scan of nothing must not read as a clean sweep').not.toContain(
+    'No literal encoding leak found',
+  );
+  expect(text, 'a scan of nothing must not read as a clean sweep').not.toContain(
+    'Nothing resolved offline',
+  );
+  expect(text, 'the empty state must be named').toMatch(/No transcript captured yet/);
+  expect(text, 'and it must say the scan read nothing').toContain('0 wire fields');
+  await expect(col.locator('.race__verdict')).toHaveClass(/race__verdict--amber/);
+
+  // Running a handshake then makes the scan meaningful again.
+  await panel(page).getByRole('button', { name: 'Honest run', exact: true }).click();
+  await panel(page).getByRole('button', { name: 'Server breach', exact: true }).click();
+  const col2 = panel(page).locator('.race__col--balanced');
+  await col2.getByRole('button', { name: 'Scan for obvious password encodings' }).click();
+  await expect(col2.locator('.race__verdict')).toContainText('No literal encoding leak found', {
+    timeout: 60_000,
+  });
+  expect(await col2.locator('.guess').count()).toBeGreaterThan(0);
 });
 
 // ---------------------------------------------------------------- dragonblood
@@ -518,6 +641,67 @@ test('the Dragonblood plot shows a varying legacy cost against a flat fixed-work
   // The mitigation must never be called constant-time.
   expect(await dblood.innerText()).not.toContain('constant-time');
   await expect(dblood.locator('.dblood__lead')).toContainText('fixed-work teaching variant');
+
+  // The summary lines must quote the numbers the plot actually produced, not assert
+  // "flat" / "varies" as adjectives. `fixedWork()` used to return the cap as a
+  // literal, so "constant work" was a claim no measurement could contradict.
+  const notes = (await dblood.locator('.dblood__notes').innerText()).replace(/\s+/g, ' ');
+  expect(notes).toContain(`every scan performed ${fixed[0]} iterations`);
+  expect(notes).toContain(
+    `iteration count varies (${Math.min(...legacy)}–${Math.max(...legacy)} iterations)`,
+  );
+  expect(
+    Math.min(...legacy),
+    'the legacy model must really do less work than the fixed-work one somewhere',
+  ).toBeLessThan(fixed[0]!);
+});
+
+// ---------------------------------------------------------------- captions
+
+/**
+ * Each wire card's caption names the construction the panel is showing. Three of
+ * them named the wrong one: SRP's `M1` is `SHA-256(...)`, not a MAC; CPace's tag is
+ * `HMAC(mac_key, lv_cat(Y_self, AD_self))`, a MAC over that party's own contribution
+ * rather than "the whole transcript"; and J-PAKE's tag is keyed by a value derived
+ * from the secret and computed over the round-1 generators, not "of its derived key".
+ */
+test('the confirmation captions describe the construction the code computes', async ({ page }) => {
+  test.slow();
+  await page.goto('/');
+  await goDeeper(page);
+
+  // SRP: M1/M2 are evidence hashes, not MACs.
+  await panel(page).getByRole('button', { name: 'Honest run', exact: true }).click();
+  const srpCaptions = await panel(page).locator('.wcard__caption').allInnerTexts();
+  expect(srpCaptions.length, 'the SRP run must caption its wire cards').toBeGreaterThan(0);
+  const srpText = srpCaptions.join(' ').replace(/\s+/g, ' ');
+  expect(srpText, 'SRP M1 is a SHA-256 evidence hash, not a MAC').not.toMatch(/MAC M1|M1 .{0,12}MAC/i);
+  expect(srpText).toMatch(/evidence hash/i);
+
+  // CPace: the tag covers this party's own Y and AD, not the whole transcript.
+  await page.getByRole('tab', { name: 'CPace', exact: true }).click();
+  await panel(page).getByRole('button', { name: 'Honest run', exact: true }).click();
+  const cpaceCaptions = await panel(page).locator('.wcard__caption').allInnerTexts();
+  expect(cpaceCaptions.length).toBeGreaterThan(0);
+  const cpaceText = cpaceCaptions.join(' ').replace(/\s+/g, ' ');
+  expect(cpaceText, 'the CPace tag is not computed over the whole transcript').not.toMatch(
+    /MAC over the whole transcript/i,
+  );
+  expect(cpaceText).toMatch(/own public contribution/i);
+  expect(cpaceText, 'and the transcript binding must be attributed to the key').toMatch(
+    /transcript-bound ISK/i,
+  );
+
+  // J-PAKE: the derived key is not the MAC's input.
+  await page.getByRole('tab', { name: 'J-PAKE', exact: true }).click();
+  await panel(page).getByRole('button', { name: 'Honest run', exact: true }).click();
+  const jpakeCaptions = await panel(page).locator('.wcard__caption').allInnerTexts();
+  expect(jpakeCaptions.length).toBeGreaterThan(0);
+  const jpakeText = jpakeCaptions.join(' ').replace(/\s+/g, ' ');
+  expect(jpakeText, 'the J-PAKE tag is keyed by the secret, not computed over the key').not.toMatch(
+    /MAC of its derived key/i,
+  );
+  expect(jpakeText).toMatch(/keyed by a value derived from its shared secret/i);
 });
 
 // ---------------------------------------------------------------- gating

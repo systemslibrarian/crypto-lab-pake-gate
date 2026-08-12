@@ -105,6 +105,30 @@ export interface Runner {
   armedTamper(): TamperOp | null;
 }
 
+// --- shipped demo configuration -------------------------------------------------
+// Exported so tests can assert the claims against the values the page ACTUALLY
+// ships, rather than against a private list of their own choosing. (The Dragonblood
+// unit tests used to run "alpha".."foxtrot" against "Alice"/"Bob" while the panel
+// plotted a different list against different identities, so nothing checked the
+// numbers a visitor sees.)
+
+/** The two demo identities every tab runs with. */
+export const DEMO_ID_A = "alice@example";
+export const DEMO_ID_B = "bob@example";
+
+/** The candidate passwords the Dragonblood side-channel panel plots. */
+export const DRAGONBLOOD_CANDIDATES = [
+  "password",
+  "hunter2",
+  "correct-horse",
+  "letmein",
+  "s3cr3t!",
+  "wpa3-demo",
+] as const;
+
+/** Modeled fixed-work iteration cap the Dragonblood panel charts against. */
+export const DRAGONBLOOD_FIXED_WORK_CAP = 40;
+
 // --- shared formatting helpers -------------------------------------------------
 
 export function bigHex(n: bigint): string {

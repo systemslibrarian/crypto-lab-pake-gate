@@ -12,7 +12,7 @@
 // FAILS rather than inventing a PE if none is found within its cap). "Fixed-work
 // teaching variant" — NEVER "constant-time": browser TS gives no such guarantee.
 
-import { firstValidCounter } from "./dragonfly";
+import { huntAndPeckScan } from "./dragonfly";
 import type { Password } from "./types";
 
 export type SideChannelModel = "legacy-early-exit" | "fixed-work";
@@ -22,6 +22,18 @@ export interface ModelRun {
   readonly password: string;
   /** modeled iteration count — the authoritative side-channel signal. */
   readonly modeledIterations: number;
+  /**
+   * Iterations the scan behind this run ACTUALLY executed, counted by the loop.
+   *
+   * This field exists so that "the fixed-work model is flat" is falsifiable. Before,
+   * `fixedWork` returned `modeledIterations: cap` as a literal and never ran a
+   * fixed-work loop at all — it called the early-exit counter and then stated the
+   * number it wished were true. Every check of the mitigation (the panel's own
+   * summary line, the unit test, the browser test) therefore compared a constant with
+   * itself and could not fail. Reading this field instead means a fixed-work model
+   * that quietly early-exits reports the counter it stopped at, and those checks bite.
+   */
+  readonly iterationsPerformed: number;
   /** whether a valid PE was found within the modeled work. */
   readonly found: boolean;
   /** the true first-valid counter (what the leak reveals), for teaching. */
@@ -44,11 +56,13 @@ export interface DragonbloodComparison {
  * iteration count == the first-valid counter → password-dependent (the leak).
  */
 export function legacyEarlyExit(idA: string, idB: string, password: Password): ModelRun {
-  const at = firstValidCounter(idA, idB, password);
+  const scan = huntAndPeckScan(idA, idB, password, { earlyExit: true });
+  const at = scan.firstValidAt;
   return {
     model: "legacy-early-exit",
     password: password as string,
-    modeledIterations: at ?? Number.NaN,
+    modeledIterations: at === null ? Number.NaN : scan.iterationsPerformed,
+    iterationsPerformed: scan.iterationsPerformed,
     found: at !== null,
     firstValidAt: at,
   };
@@ -57,7 +71,13 @@ export function legacyEarlyExit(idA: string, idB: string, password: Password): M
 /**
  * Fixed-work teaching model: always performs exactly `cap` modeled iterations (no
  * early exit) and selects the first valid candidate. If NONE is valid within the cap,
- * it FAILS — it never invents a PE. Iteration count is `cap` regardless of password.
+ * it FAILS — it never invents a PE.
+ *
+ * `modeledIterations` is COUNTED BY THE SCAN, not assigned from `cap`. It used to be
+ * the literal `cap`, which made "the fixed-work model is flat" a tautology: the
+ * panel, the unit test and the browser test all compared a constant with itself and
+ * could not have failed. Counting the loop's own work means reintroducing an early
+ * exit here would make the reported numbers vary and every one of those checks bite.
  */
 export function fixedWork(
   idA: string,
@@ -65,11 +85,13 @@ export function fixedWork(
   password: Password,
   cap: number,
 ): ModelRun {
-  const at = firstValidCounter(idA, idB, password, cap);
+  const scan = huntAndPeckScan(idA, idB, password, { maxCounter: cap, earlyExit: false });
+  const at = scan.firstValidAt;
   return {
     model: "fixed-work",
     password: password as string,
-    modeledIterations: cap, // constant work, independent of the password
+    modeledIterations: scan.iterationsPerformed,
+    iterationsPerformed: scan.iterationsPerformed,
     found: at !== null && at <= cap,
     firstValidAt: at,
   };
@@ -88,7 +110,8 @@ export function compareModels(
     runs.push(fixedWork(idA, idB, pw, fixedWorkCap));
   }
   const legacyCounts = runs.filter((r) => r.model === "legacy-early-exit").map((r) => r.modeledIterations);
-  const fixedCounts = runs.filter((r) => r.model === "fixed-work").map((r) => r.modeledIterations);
+  // Flatness is judged on the iterations the fixed-work scans REALLY performed.
+  const fixedCounts = runs.filter((r) => r.model === "fixed-work").map((r) => r.iterationsPerformed);
   return {
     idA,
     idB,

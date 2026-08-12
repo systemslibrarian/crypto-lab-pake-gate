@@ -65,7 +65,10 @@ export class JPakeRunner extends StepMachine implements Runner {
       { label: "B receives A's Round 2", run: () => { this.consuming = a2c; this.b.recvRound2(a2); return null; } },
       { label: "A derives key", run: () => { this.a.deriveKey(); return null; } },
       { label: "B derives key", run: () => { this.b.deriveKey(); return null; } },
-      { label: "A → confirm tag", run: () => { ac = this.maybeTamper(this.a.confirm()); return (acc = this.push(ac, ["tag"], "A sends a MAC of its derived key so B can check they truly agree — the key itself never crosses.")); } },
+      // macTag() is HMAC(kc, "KC_1_U" || ids || g1..g4): the MAC is keyed BY a value
+      // derived from the shared secret, and computed OVER the round-1 generators —
+      // the derived key is not the MAC's input.
+      { label: "A → confirm tag", run: () => { ac = this.maybeTamper(this.a.confirm()); return (acc = this.push(ac, ["tag"], "A sends a MAC over the round-1 generators, keyed by a value derived from its shared secret, so B can check they truly agree — the key itself never crosses.")); } },
       { label: "B → confirm tag", run: () => { bc = this.maybeTamper(this.b.confirm()); return (bcc = this.push(bc, ["tag"], "B sends its matching confirmation tag. Both verify, and the handshake confirms.")); } },
       { label: "A verifies B's tag", run: () => { this.consuming = bcc; this.a.recvConfirm(bc); return null; } },
       { label: "B verifies A's tag", run: () => { this.consuming = acc; this.b.recvConfirm(ac); this.finish(); return null; } },

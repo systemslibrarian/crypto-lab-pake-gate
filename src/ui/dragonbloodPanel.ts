@@ -6,8 +6,9 @@
 import { compareModels } from "../pake/dragonblood.ts";
 import { makePassword } from "../pake/factories.ts";
 import { clear, el } from "./dom.ts";
+import { DRAGONBLOOD_CANDIDATES, DRAGONBLOOD_FIXED_WORK_CAP } from "./model.ts";
 
-const CANDIDATES = ["password", "hunter2", "correct-horse", "letmein", "s3cr3t!", "wpa3-demo"];
+const CANDIDATES: readonly string[] = DRAGONBLOOD_CANDIDATES;
 
 export function renderDragonbloodPanel(idA: string, idB: string): HTMLElement {
   const section = el("section", { class: "dblood", "aria-labelledby": "dblood-h" }, [
@@ -15,11 +16,13 @@ export function renderDragonbloodPanel(idA: string, idB: string): HTMLElement {
     el("p", { class: "dblood__lead", text: "Vanhoef & Ronen (2019): the hunting-and-pecking password mapping leaks a password-dependent iteration count. Below, the modeled iteration count per candidate — legacy early-exit varies (the leak); the fixed-work teaching variant is flat." }),
   ]);
 
-  const cmp = compareModels(idA, idB, CANDIDATES.map((c) => makePassword(c)), 40);
+  const cmp = compareModels(idA, idB, CANDIDATES.map((c) => makePassword(c)), DRAGONBLOOD_FIXED_WORK_CAP);
   const legacy = cmp.runs.filter((r) => r.model === "legacy-early-exit");
   const fixed = cmp.runs.filter((r) => r.model === "fixed-work");
 
   const maxIter = Math.max(cmp.fixedWorkCap, ...legacy.map((r) => (Number.isFinite(r.modeledIterations) ? r.modeledIterations : 0))) || 1;
+  const legacyIters = legacy.map((r) => (Number.isFinite(r.modeledIterations) ? r.modeledIterations : 0));
+  const legacyRange = `${Math.min(...legacyIters)}–${Math.max(...legacyIters)} iterations`;
 
   // Click-to-explain: selecting a candidate spells out WHY that password took that
   // many hunt-and-peck tries and what a timing attacker learns from the difference.
@@ -37,8 +40,8 @@ export function renderDragonbloodPanel(idA: string, idB: string): HTMLElement {
         class: "dblood__explain-body",
         text:
           iters === 1
-            ? `Hunt-and-peck hashes the password with a rising counter until the result maps to a valid curve point. Here counter 1 landed on a valid point immediately, so the legacy loop exits after a single pass. The fixed-work variant always runs the full ${cmp.fixedWorkCap} passes regardless, so its work reveals nothing.`
-            : `Hunt-and-peck hashes the password with a rising counter until the result maps to a valid curve point. Here the first ${iters - 1} counter value${iters - 1 === 1 ? "" : "s"} missed; iteration ${iters} was the first hit, so the legacy loop exits after ${iters} passes. The fixed-work variant always runs the full ${cmp.fixedWorkCap} passes regardless, so its work reveals nothing.`,
+            ? `Hunt-and-peck hashes the password with a rising counter until the result maps to a valid curve point. Here counter 1 landed on a valid point immediately, so the legacy loop exits after a single pass. The fixed-work variant ran the full ${fixed[i]!.iterationsPerformed} passes regardless, so its work reveals nothing.`
+            : `Hunt-and-peck hashes the password with a rising counter until the result maps to a valid curve point. Here the first ${iters - 1} counter value${iters - 1 === 1 ? "" : "s"} missed; iteration ${iters} was the first hit, so the legacy loop exits after ${iters} passes. The fixed-work variant ran the full ${fixed[i]!.iterationsPerformed} passes regardless, so its work reveals nothing.`,
       }),
       el("p", {
         class: "dblood__explain-exploit",
@@ -57,7 +60,7 @@ export function renderDragonbloodPanel(idA: string, idB: string): HTMLElement {
     const group = el("div", { class: "plot__group" }, [
       el("div", { class: "plot__bars" }, [
         bar("legacy", lIter, maxIter, "bar--legacy", `legacy early-exit: ${Number.isFinite(l.modeledIterations) ? lIter : "not found"} iterations`),
-        bar("fixed", f.modeledIterations, maxIter, "bar--fixed", `fixed-work teaching variant: ${f.modeledIterations} iterations`),
+        bar("fixed", f.iterationsPerformed, maxIter, "bar--fixed", `fixed-work teaching variant: ${f.iterationsPerformed} iterations actually performed`),
       ]),
       el("div", { class: "plot__label", text: pw }),
     ]);
@@ -93,8 +96,8 @@ export function renderDragonbloodPanel(idA: string, idB: string): HTMLElement {
 
   section.append(
     el("ul", { class: "dblood__notes" }, [
-      el("li", { text: `Legacy model leaks across these candidates: ${cmp.legacyLeaks ? "yes — iteration count varies" : "no variation in this sample"}.` }),
-      el("li", { text: `Fixed-work model flat across these candidates: ${cmp.fixedWorkFlat ? "yes — constant work" : "no"}.` }),
+      el("li", { text: `Legacy model across these candidates: ${cmp.legacyLeaks ? `iteration count varies (${legacyRange}) — that variation IS the leak` : "no variation in this sample, so nothing leaked here"}.` }),
+      el("li", { text: `Fixed-work model across these candidates: ${cmp.fixedWorkFlat ? `every scan performed ${fixed[0]!.iterationsPerformed} iterations — flat` : `iterations varied (${new Set(fixed.map((f) => f.iterationsPerformed)).size} distinct counts) — NOT flat, the mitigation is not holding`}.` }),
       el("li", { text: "Modeled iteration count is the signal; raw browser timing is noisy and not the oracle." }),
       el("li", { text: "Neither model produces the honest-run keys — this panel is strictly the side-channel comparison." }),
     ]),

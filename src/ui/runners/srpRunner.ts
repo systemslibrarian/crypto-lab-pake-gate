@@ -77,7 +77,9 @@ export class SrpRunner extends StepMachine implements Runner {
         run: () => {
           const delivered = this.wire.send(serverHello);
           clientProof = this.maybeTamper(this.client.proof(delivered));
-          return (clientProofCard = this.push(clientProof, ["M1"], "The client proves it derived the same secret S by sending a MAC M1 — this is evidence, not the key or the password."));
+          // M1 is computeM1() — a plain SHA-256 over public values and K, NOT an
+          // HMAC. Calling it a MAC misdescribes the construction the panel shows.
+          return (clientProofCard = this.push(clientProof, ["M1"], "The client proves it derived the same secret S by sending M1, the profile's key-evidence hash over the transcript and K — this is evidence, not the key or the password."));
         },
       },
       {
@@ -86,7 +88,7 @@ export class SrpRunner extends StepMachine implements Runner {
           const delivered = this.wire.send(clientProof);
           this.consuming = clientProofCard;
           serverProof = this.maybeTamper(this.server.proof(delivered));
-          return (serverProofCard = this.push(serverProof, ["M2"], "The server checks M1, then proves it back with M2 — mutual confirmation that both landed on the same key."));
+          return (serverProofCard = this.push(serverProof, ["M2"], "The server recomputes M1 and checks it, then proves it back with its own evidence hash M2 — mutual confirmation that both landed on the same key."));
         },
       },
       {

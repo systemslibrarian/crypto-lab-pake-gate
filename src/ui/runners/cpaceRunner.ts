@@ -59,7 +59,10 @@ export class CPaceRunner extends StepMachine implements Runner {
       { label: "B → message (Y, AD)", run: () => { bm = this.maybeTamper(this.b.message()); return (bmc = this.push(bm, ["Y", "AD"], "B sends its matching public element. Both were built on the same password-derived generator, so the two shares combine to one secret.")); } },
       { label: "A receives B's message", run: () => { this.consuming = bmc; this.a.receive(bm); return null; } },
       { label: "B receives A's message", run: () => { this.consuming = amc; this.b.receive(am); return null; } },
-      { label: "A → confirm tag", run: () => { ac = this.maybeTamper(this.a.confirm()); return (acc = this.push(ac, ["tag"], "A sends a MAC over the whole transcript so B can confirm they derived the same key — the key stays home.")); } },
+      // The tag is HMAC(mac_key, lv_cat(Y_self, AD_self)) — a MAC over this party's
+      // OWN public contribution, not over the whole transcript. The transcript binds
+      // in through mac_key, which is derived from the transcript-bound ISK.
+      { label: "A → confirm tag", run: () => { ac = this.maybeTamper(this.a.confirm()); return (acc = this.push(ac, ["tag"], "A sends a confirmation MAC over its own public contribution Y and associated data. The MAC key comes from the transcript-bound ISK, so a peer with a different transcript or password cannot verify it — and the key itself stays home.")); } },
       { label: "B → confirm tag", run: () => { bc = this.maybeTamper(this.b.confirm()); return (bcc = this.push(bc, ["tag"], "B returns its confirmation tag; both verify and the key is confirmed.")); } },
       { label: "A verifies B's tag", run: () => { this.consuming = bcc; this.a.recvConfirm(bc); return null; } },
       { label: "B verifies A's tag", run: () => { this.consuming = acc; this.b.recvConfirm(ac); this.finish(); return null; } },

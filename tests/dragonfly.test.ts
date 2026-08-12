@@ -3,9 +3,16 @@ import {
   DragonflyParty,
   derivePasswordElement,
   firstValidCounter,
+  huntAndPeckScan,
   type DragonflyConfig,
 } from "../src/pake/dragonfly";
 import { compareModels, fixedWork, legacyEarlyExit } from "../src/pake/dragonblood";
+import {
+  DEMO_ID_A,
+  DEMO_ID_B,
+  DRAGONBLOOD_CANDIDATES,
+  DRAGONBLOOD_FIXED_WORK_CAP,
+} from "../src/ui/model";
 import { P256_ORDER_N } from "../src/pake/groups";
 import { asPassword } from "../src/pake/types";
 import { SHA256 } from "../src/pake/hashes";
@@ -87,6 +94,67 @@ describe("Dragonblood side-channel comparison (models only; never honest keys)",
     const counts = candidates.map((pw) => fixedWork("Alice", "Bob", pw, 40).modeledIterations);
     expect(new Set(counts).size).toBe(1);
     expect(counts[0]).toBe(40);
+  });
+
+  /**
+   * Regression: "the fixed-work variant is flat" used to be unfalsifiable.
+   * `fixedWork()` returned `modeledIterations: cap` as a literal, so the panel's
+   * "constant work" line, the assertion above and the browser test all compared a
+   * constant with itself. Re-introducing an early exit into the fixed-work model —
+   * the exact regression the mitigation exists to prevent — would have changed
+   * nothing any check could see.
+   *
+   * These assertions run on the SHIPPED panel configuration (identities, candidate
+   * list and cap all imported from the UI module rather than chosen here), and they
+   * require the interesting state to actually occur.
+   */
+  it("fixed-work flatness is COUNTED by the loop, on the shipped panel configuration", () => {
+    const cap = DRAGONBLOOD_FIXED_WORK_CAP;
+    const shipped = DRAGONBLOOD_CANDIDATES.map(asPassword);
+
+    // The test only means anything if some candidate finds a PE well before the cap —
+    // that gap is what an early exit would skip. Fail loudly if it never happens.
+    const firstValid = shipped.map((pw) => firstValidCounter(DEMO_ID_A, DEMO_ID_B, pw));
+    expect(firstValid.every((v) => v !== null)).toBe(true);
+    const earlyOnes = firstValid.filter((v) => v !== null && v < cap);
+    expect(
+      earlyOnes.length,
+      "no shipped candidate finds a PE before the cap, so this test proves nothing",
+    ).toBeGreaterThan(0);
+
+    // The fixed-work MODEL really executes every iteration despite that. Note this
+    // reads what `fixedWork` itself reports — re-running the scan here instead would
+    // check the loop rather than the model, and would still pass if the model went
+    // back to early-exiting and stating the cap.
+    for (const pw of shipped) {
+      const run = fixedWork(DEMO_ID_A, DEMO_ID_B, pw, cap);
+      expect(run.iterationsPerformed).toBe(cap);
+      expect(run.modeledIterations).toBe(run.iterationsPerformed);
+      expect(run.found).toBe(true);
+    }
+
+    // The legacy model, over the SAME shipped candidates, really does less work — and
+    // a DIFFERENT amount for different passwords. That difference is the leak the
+    // panel plots, so it must be non-zero here or the panel's claim is empty.
+    const legacyRuns = shipped.map((pw) => legacyEarlyExit(DEMO_ID_A, DEMO_ID_B, pw));
+    const legacyCounts = legacyRuns.map((r) => r.iterationsPerformed);
+    expect(legacyRuns.every((r) => r.modeledIterations === r.iterationsPerformed)).toBe(true);
+    expect(legacyCounts.every((c) => c < cap)).toBe(true);
+    expect(
+      new Set(legacyCounts).size,
+      "the shipped candidates must not all cost the same, or the plotted leak is flat",
+    ).toBeGreaterThan(1);
+    expect(compareModels(DEMO_ID_A, DEMO_ID_B, shipped, cap).legacyLeaks).toBe(true);
+  });
+
+  it("an early-exit scan stops at the first valid counter; a fixed-work scan does not", () => {
+    const pw = asPassword("correct-horse");
+    const early = huntAndPeckScan(DEMO_ID_A, DEMO_ID_B, pw, { maxCounter: 40, earlyExit: true });
+    const flat = huntAndPeckScan(DEMO_ID_A, DEMO_ID_B, pw, { maxCounter: 40, earlyExit: false });
+    expect(early.firstValidAt).toBe(flat.firstValidAt);
+    expect(early.iterationsPerformed).toBe(early.firstValidAt);
+    expect(flat.iterationsPerformed).toBe(40);
+    expect(flat.iterationsPerformed).toBeGreaterThan(early.iterationsPerformed);
   });
 
   it("fixed-work FAILS rather than inventing a PE when none is found within the cap", () => {

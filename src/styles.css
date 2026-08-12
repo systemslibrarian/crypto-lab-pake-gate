@@ -498,6 +498,17 @@ body {
 .race__verdict { margin: 0.4rem 0 0; font-size: 0.85rem; font-weight: 600; }
 .race__verdict--amber { color: var(--amber); }
 .race__verdict--neutral { color: var(--ink-soft); }
+/* What the panel MEASURED (grind rate), and the security claim the scan does NOT
+   prove — both deliberately quieter than the verdict they qualify. */
+.race__rate,
+.race__claim {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--ink-faint);
+  border-left: 2px solid var(--line);
+  padding-left: 0.6rem;
+}
 
 .economics { margin-top: 0.8rem; border-top: 1px solid var(--line); padding-top: 0.7rem; }
 .economics__title { margin: 0 0 0.5rem; font-size: 1rem; }
