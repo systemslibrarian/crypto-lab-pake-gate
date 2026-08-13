@@ -15,11 +15,23 @@
   --ink-faint: #9696a0; /* AA on --panel-2 #24242f (was #85858f, 4.20:1) */
   --line: #33333f;
   --line-strong: #45454f;
-  /* text-entry control boundary — WCAG 1.4.11 needs >=3:1; this hits 3.7:1 on
-     the --panel-2 fill and 4.1:1 on the surrounding --panel. */
+  /* THE control boundary, for every control on the page — not just text entry.
+     WCAG 1.4.11 needs >=3:1 against whatever the control sits on: this measures
+     4.45:1 on --bg, 4.06:1 on --panel, 3.7:1 on --panel-2 and 3.56:1 on the
+     --amber-bg of an armed tamper row. It used to be applied to .field__input
+     alone while every button and tab drew its edge from --line (1.47:1) or
+     --line-strong (1.77:1) — surface dividers, which is what they still are. */
   --control-line: #7c7c88;
 
   --accent-strong: #c084fc; /* passes on dark --bg (6.9:1) */
+  /* The ink that goes ON an --accent fill. Doubles as the edge of a filled
+     accent button: --accent is NOT themed (index.html sets one value for both
+     themes, and the shared top bar tints from it), so on the white light-theme
+     --panel an accent fill is only 2.64:1 against its own surroundings and the
+     button has no boundary of its own at all. This ink is guaranteed readable
+     on that fill by construction, and measures 17.1:1 against the light panel
+     it has to delineate against. */
+  --accent-ink: #1b1b22;
 
   --ok: #6ee7a0;
   --ok-bg: #123021;
@@ -52,8 +64,8 @@
   --ink-faint: #67676f; /* AA on --bg (was #8a8a95, 3.2:1) */
   --line: #dcdce4;
   --line-strong: #c3c3ce;
-  /* text-entry control boundary — 4.1:1 on the --panel-2 fill, 4.6:1 on the
-     white --panel (was --line-strong #c3c3ce, 1.5:1 / 1.75:1). */
+  /* THE control boundary — 4.32:1 on --bg, 4.62:1 on the white --panel, 4.1:1
+     on the --panel-2 fill (was --line-strong #c3c3ce, 1.5:1 / 1.75:1). */
   --control-line: #74747f;
 
   /* darker accent for TEXT/links on light bg — raw --accent #c084fc is only 2.5:1.
@@ -130,7 +142,7 @@ body {
 .tab {
   flex: 0 0 auto;
   padding: 0.55rem 1.1rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   border-bottom: none;
   border-radius: var(--radius) var(--radius) 0 0;
   background: var(--panel-2);
@@ -142,11 +154,17 @@ body {
   min-height: 44px;
 }
 .tab:hover { color: var(--ink); }
+/* The SELECTED tab. Its edge and underline use --accent-strong, the THEMED
+   accent, not the raw --accent: --accent is one value for both themes, and on
+   the light theme's white --panel it measures 2.47:1 against the page behind
+   the tab strip — so the one control that tells the reader which protocol is
+   open had no perceivable boundary of its own. --accent-strong is 6.95:1 dark
+   and 6.64:1 light against --bg. */
 .tab.is-active {
   background: var(--panel);
   color: var(--ink);
-  border-color: var(--accent);
-  box-shadow: inset 0 -3px 0 var(--accent);
+  border-color: var(--accent-strong);
+  box-shadow: inset 0 -3px 0 var(--accent-strong);
 }
 
 /* --- controls --- */
@@ -186,7 +204,7 @@ body {
   font: inherit;
   font-weight: 600;
   padding: 0.45rem 0.85rem;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--control-line);
   border-radius: 8px;
   background: var(--panel-2);
   color: var(--ink);
@@ -195,14 +213,21 @@ body {
   min-height: 44px;
   min-width: 44px;
 }
-.btn:hover { border-color: var(--accent); }
+.btn:hover { border-color: var(--accent-strong); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn--primary { background: var(--accent); border-color: var(--accent); color: #1b1b22; }
+/* Filled accent button. The border is --accent-ink rather than --accent: an
+   accent-on-accent edge is 1:1, which left the light theme relying on
+   fill-vs-page alone at 2.64:1. */
+.btn--primary { background: var(--accent); border-color: var(--accent-ink); color: var(--accent-ink); }
 .btn--secondary { background: var(--panel); }
 .btn--ghost { background: transparent; }
-.btn--launcher.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
-.btn--attack { border-color: var(--alarm-line); color: var(--alarm); }
-.btn--attack:hover { border-color: var(--alarm); }
+.btn--launcher.is-active { border-color: var(--accent-strong); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+/* The attack buttons draw their edge from --alarm, the alarm INK, not from
+   --alarm-line, which is a surface divider and measured 1.74:1 against the
+   panel these sit on. Hover moves the fill instead, so the two states are still
+   distinguishable without the resting state being invisible. */
+.btn--attack { border-color: var(--alarm); color: var(--alarm); }
+.btn--attack:hover { background: var(--alarm-bg); }
 
 /* keyboard focus ring everywhere */
 :focus-visible {
@@ -319,7 +344,7 @@ body {
   overflow: hidden;
   background: var(--panel);
 }
-.hexbox--hot { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.hexbox--hot { border-color: var(--accent-strong); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
 .hexbox__value {
   flex: 1 1 auto;
   overflow-x: auto;
@@ -329,10 +354,16 @@ body {
   font-size: 0.78rem;
   scrollbar-width: thin;
 }
+/* The copy button had `border: none` plus a single --line rule on its left, so
+   the only thing separating it from the box was a 1.28:1 hairline and its fill
+   was 1.09:1 against the box behind it — 1.09:1 was all a reader had. It now
+   carries a --control-line edge of its own (4.06:1 on the --panel fill of
+   .hexbox); the top/right/bottom segments sit under the box's own rounded
+   clip, so what changes visually is that the divider becomes legible. */
 .hexbox__copy {
   flex: 0 0 auto;
-  border: none;
-  border-left: 1px solid var(--line);
+  border: 1px solid var(--control-line);
+  border-radius: 0 6px 6px 0;
   background: var(--panel-2);
   color: var(--ink-soft);
   font: inherit;
@@ -384,8 +415,10 @@ body {
   0%, 100% { transform: scale(1); }
   35%      { transform: scale(1.4); }
 }
+/* The "this secret stayed home" pulse marks a real thing on screen, so its
+   stroke is themed (--accent is 2.64:1 on the light theme's panel). */
 .scratch--stayed {
-  border-color: var(--accent);
+  border-color: var(--accent-strong);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 .scratch--stayed .scratch__lock {
@@ -476,7 +509,14 @@ body {
 .rawmsg__head { font-weight: 700; font-size: 0.8rem; margin-bottom: 0.3rem; }
 .rawmsg__field { display: flex; flex-direction: column; gap: 0.1rem; margin-bottom: 0.35rem; }
 .rawmsg__name { font-size: 0.72rem; color: var(--ink-soft); }
-.rawmsg__hex { font-family: var(--mono); font-size: 0.74rem; overflow-x: auto; white-space: nowrap; display: block; }
+/* Spaced byte pairs, so this WRAPS rather than scrolling. It used to be
+   `white-space: nowrap; overflow-x: auto`, which made every field of every wire
+   message its own scrolling region with no keyboard route — axe flagged it
+   (scrollable-region-focusable, SC 2.1.1) and one SRP field measured 10942px
+   wide inside a 1177px box. Wrapping removes the scroller instead of adding a
+   tab stop per field; `anywhere` covers the non-hex values, which have no
+   spaces to break at. */
+.rawmsg__hex { font-family: var(--mono); font-size: 0.74rem; display: block; overflow-wrap: anywhere; }
 
 /* --- breach dump + race --- */
 .breach__dump { display: grid; gap: 0.25rem; margin-bottom: 0.6rem; }
@@ -537,8 +577,11 @@ body {
 .dblood__notes { margin: 0.4rem 0 0; padding-left: 1.1rem; font-size: 0.85rem; color: var(--ink-soft); }
 
 /* Dragonblood click-to-explain */
+/* Each Dragonblood candidate is a button ("Click a candidate…"), and it used to
+   draw a TRANSPARENT border — 1:1, no resting affordance at all, the boundary
+   appearing only on hover. */
 .plot__pick {
-  border: 1px solid transparent;
+  border: 1px solid var(--control-line);
   background: none;
   padding: 0.15rem 0.15rem 0;
   border-radius: 8px;
@@ -548,7 +591,7 @@ body {
 }
 .plot__pick:hover { border-color: var(--line-strong); background: var(--panel-2); }
 .plot__pick:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
-.plot__pick.is-active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.plot__pick.is-active { border-color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .dblood__pick-hint { margin: 0.6rem 0 0.4rem; font-size: 0.82rem; color: var(--ink-soft); }
 .dblood__explain {
   border: 1px solid var(--line);
