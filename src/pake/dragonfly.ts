@@ -119,6 +119,7 @@ export function derivePasswordElement(
   password: Password,
   k: number = DRAGONFLY_K,
 ): PeResult {
+  assertCounterBound(k, "k");
   const eA = encodeId(idA);
   const eB = encodeId(idB);
   const [hi, lo] = os2ip(eA) >= os2ip(eB) ? [eA, eB] : [eB, eA];
@@ -128,7 +129,7 @@ export function derivePasswordElement(
   let foundAt = 0;
   let counter = 1;
   for (;;) {
-    const base = SHA256(hi, lo, pw, Uint8Array.of(counter & 0xff));
+    const base = SHA256(hi, lo, pw, Uint8Array.of(counter));
     const temp = kdf800108(base, PE_LABEL, new Uint8Array(0), 320);
     const seed = (os2ip(temp) % (P256_FIELD_P - 1n)) + 1n;
     if (found === null && seed < P256_FIELD_P) {
@@ -149,7 +150,28 @@ export function derivePasswordElement(
       return { PE: found, foundAt, iterations: counter };
     }
     counter++;
-    if (counter > 4000) throw new HandshakeAbort("Dragonfly PE not found", "no valid password element within the search bound.");
+    // The counter is serialized as ONE octet, so 255 is the last distinct value.
+    // The loop used to run to 4,000 with `counter & 0xff`, silently repeating the
+    // candidate sequence past 255. Reaching this abort needs ~255 consecutive
+    // misses at ~1/2 each (~2^-255) — unreachable in practice, but the bound must
+    // exist so a candidate is never repeated.
+    if (counter > 255) {
+      throw new HandshakeAbort(
+        "Dragonfly PE not found",
+        "no valid password element within the one-octet counter range (1-255); abort rather than wrap and repeat candidates.",
+      );
+    }
+  }
+}
+
+/**
+ * The Dragonfly counter is one octet: every counter-like bound must sit in
+ * [min, 255]. min is 1 for the honest derivation's k; the teaching scan allows a
+ * degenerate zero-iteration bound (it serializes nothing at cap 0).
+ */
+function assertCounterBound(v: number, name: string, min = 1): void {
+  if (!Number.isInteger(v) || v < min || v > 255) {
+    throw new RangeError(`Dragonfly ${name} must be an integer in [${min}, 255] (one-octet counter); got ${v}`);
   }
 }
 
@@ -184,6 +206,7 @@ export function huntAndPeckScan(
   opts: { maxCounter?: number; earlyExit?: boolean } = {},
 ): HuntScan {
   const maxCounter = opts.maxCounter ?? 255;
+  assertCounterBound(maxCounter, "maxCounter", 0);
   const earlyExit = opts.earlyExit ?? true;
   const eA = encodeId(idA);
   const eB = encodeId(idB);
@@ -193,7 +216,7 @@ export function huntAndPeckScan(
   let iterationsPerformed = 0;
   for (let counter = 1; counter <= maxCounter; counter++) {
     iterationsPerformed = counter;
-    const base = SHA256(hi, lo, pw, Uint8Array.of(counter & 0xff));
+    const base = SHA256(hi, lo, pw, Uint8Array.of(counter));
     const temp = kdf800108(base, PE_LABEL, new Uint8Array(0), 320);
     const seed = (os2ip(temp) % (P256_FIELD_P - 1n)) + 1n;
     if (firstValidAt === null && seed < P256_FIELD_P && sqrtModP(curveRhs(seed)) !== null) {
@@ -255,6 +278,18 @@ export class DragonflyParty {
   private readonly priv: bigint;
 
   constructor(private readonly cfg: DragonflyConfig) {
+    // RFC 7664 range rule, enforced BEFORE any commit is derived: injected nonces
+    // (tests, KATs, direct callers) must satisfy 1 < scalar < n, matching the
+    // check recvCommit already applies to the peer's commit scalar.
+    const n = P256_ORDER_N;
+    for (const [name, v] of [["private", cfg.nonces.priv], ["mask", cfg.nonces.mask]] as const) {
+      if (v <= 1n || v >= n) {
+        throw new HandshakeAbort(
+          `Dragonfly ${name} scalar out of range`,
+          "RFC 7664 requires 1 < scalar < n for the private and mask values; regenerate the nonce.",
+        );
+      }
+    }
     this.priv = cfg.nonces.priv;
   }
 

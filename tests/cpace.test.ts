@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { CPaceParty, calculateGenerator, type CPaceConfig } from "../src/pake/cpace";
-import { prependLen, lvCat, oCat, utf8Nfc, fromHex } from "../src/pake/encoding";
+import { CPaceParty, RISTRETTO255_ORDER, calculateGenerator, type CPaceConfig } from "../src/pake/cpace";
+import { i2ospLE, os2ipLE, prependLen, lvCat, oCat, utf8Nfc, fromHex } from "../src/pake/encoding";
 import { asPassword } from "../src/pake/types";
 import { Wire } from "../src/pake/wire";
 import { sha256 } from "@noble/hashes/sha2";
@@ -14,7 +14,11 @@ const ci = fromHex("0b415f696e69746961746f720b425f726573706f6e646572");
 const sid = fromHex("7e4b4791d6a8ef019b936c79fb7f2c57");
 
 function scalar(label: string): Uint8Array {
-  return sha256(utf8Nfc(label)).slice(0, 32);
+  // Deterministic CANONICAL scalar (1 <= s < L, little-endian). The engine now
+  // rejects non-canonical scalar bytes instead of reducing them, so the fixture
+  // folds the hash into range itself.
+  const s = (os2ipLE(sha256(utf8Nfc(label))) % (RISTRETTO255_ORDER - 1n)) + 1n;
+  return i2ospLE(s, 32);
 }
 function party(role: "A" | "B", pw: string, adLabel: string, sLabel: string): CPaceConfig {
   return { role, password: asPassword(pw), ci, sid, ad: utf8Nfc(adLabel), scalar: scalar(sLabel) };

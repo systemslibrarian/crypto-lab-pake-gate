@@ -185,6 +185,7 @@ body {
   align-items: flex-end;
 }
 .controls__launchers { flex: 1 1 auto; }
+.controls__pw-note { flex-basis: 100%; margin: 0; font-size: 0.8rem; color: var(--ink-soft); }
 
 .field { display: flex; flex-direction: column; gap: 0.2rem; }
 .field--action { justify-content: flex-end; }
@@ -672,6 +673,7 @@ body {
 .explainer__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem 0.7rem; margin-bottom: 0.4rem; }
 .explainer__title { margin: 0; font-size: 1.15rem; }
 .explainer__std { color: var(--ink-faint); font-size: 0.78rem; }
+.explainer__profile { margin: 0 0 0.4rem; color: var(--ink-faint); font-size: 0.78rem; max-width: 92ch; }
 .explainer__what { margin: 0 0 0.5rem; max-width: 82ch; }
 .explainer__try { margin: 0; color: var(--ink-soft); font-size: 0.9rem; max-width: 82ch; }
 

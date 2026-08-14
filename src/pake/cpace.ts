@@ -42,7 +42,8 @@ import {
 } from "./types";
 
 // ristretto255 / ed25519 group order L.
-const L = 2n ** 252n + 27742317777372353535851937790883648493n;
+export const RISTRETTO255_ORDER = 2n ** 252n + 27742317777372353535851937790883648493n;
+const L = RISTRETTO255_ORDER;
 const DSI_GEN = utf8Nfc("CPaceRistretto255");
 const DSI_ISK = utf8Nfc("CPaceRistretto255_ISK");
 const S_IN_BYTES = 128;
@@ -56,7 +57,11 @@ export interface CPaceConfig {
   sid: Uint8Array;
   /** associated data for this party (ADa or ADb). */
   ad: Uint8Array;
-  /** ephemeral scalar bytes (32, little-endian). Injected for KATs; random in demo. */
+  /**
+   * ephemeral scalar bytes (32, little-endian, canonical: 1 <= s < L). Injected for
+   * KATs; sampled by rejection (factories.sampleRistrettoScalar) in the demo.
+   * Non-canonical bytes are rejected, never silently reduced mod L.
+   */
   scalar: Uint8Array;
 }
 
@@ -74,8 +79,17 @@ export function calculateGenerator(prs: Uint8Array, ci: Uint8Array, sid: Uint8Ar
 }
 
 function scalarInt(bytes: Uint8Array): bigint {
-  const s = os2ipLE(bytes) % L;
-  if (s === 0n) throw new HandshakeAbort("CPace scalar is zero", "ephemeral scalar must be nonzero mod L.");
+  if (bytes.length !== 32) {
+    throw new HandshakeAbort("CPace scalar wrong length", "ephemeral scalar must be exactly 32 bytes.");
+  }
+  const s = os2ipLE(bytes);
+  if (s === 0n) throw new HandshakeAbort("CPace scalar is zero", "ephemeral scalar must be nonzero.");
+  if (s >= L) {
+    throw new HandshakeAbort(
+      "CPace scalar out of range",
+      "ephemeral scalar must be canonical (1 <= s < L); non-canonical bytes are rejected, not reduced.",
+    );
+  }
   return s;
 }
 

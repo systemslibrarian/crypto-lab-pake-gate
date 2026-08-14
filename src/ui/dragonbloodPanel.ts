@@ -40,8 +40,8 @@ export function renderDragonbloodPanel(idA: string, idB: string): HTMLElement {
         class: "dblood__explain-body",
         text:
           iters === 1
-            ? `Hunt-and-peck hashes the password with a rising counter until the result maps to a valid curve point. Here counter 1 landed on a valid point immediately, so the legacy loop exits after a single pass. The fixed-work variant ran the full ${fixed[i]!.iterationsPerformed} passes regardless, so its work reveals nothing.`
-            : `Hunt-and-peck hashes the password with a rising counter until the result maps to a valid curve point. Here the first ${iters - 1} counter value${iters - 1 === 1 ? "" : "s"} missed; iteration ${iters} was the first hit, so the legacy loop exits after ${iters} passes. The fixed-work variant ran the full ${fixed[i]!.iterationsPerformed} passes regardless, so its work reveals nothing.`,
+            ? `Hunt-and-peck hashes the password with a rising counter until the result maps to a valid curve point. Here counter 1 landed on a valid point immediately, so the legacy loop exits after a single pass. The fixed-work variant ran the full ${fixed[i]!.iterationsPerformed} passes regardless, so its iteration count reveals nothing.`
+            : `Hunt-and-peck hashes the password with a rising counter until the result maps to a valid curve point. Here the first ${iters - 1} counter value${iters - 1 === 1 ? "" : "s"} missed; iteration ${iters} was the first hit, so the legacy loop exits after ${iters} passes. The fixed-work variant ran the full ${fixed[i]!.iterationsPerformed} passes regardless, so its iteration count reveals nothing.`,
       }),
       el("p", {
         class: "dblood__explain-exploit",
@@ -99,6 +99,7 @@ export function renderDragonbloodPanel(idA: string, idB: string): HTMLElement {
       el("li", { text: `Legacy model across these candidates: ${cmp.legacyLeaks ? `iteration count varies (${legacyRange}) — that variation IS the leak` : "no variation in this sample, so nothing leaked here"}.` }),
       el("li", { text: `Fixed-work model across these candidates: ${cmp.fixedWorkFlat ? `every scan performed ${fixed[0]!.iterationsPerformed} iterations — flat` : `iterations varied (${new Set(fixed.map((f) => f.iterationsPerformed)).size} distinct counts) — NOT flat, the mitigation is not holding`}.` }),
       el("li", { text: "Modeled iteration count is the signal; raw browser timing is noisy and not the oracle." }),
+      el("li", { text: "A flat iteration count removes only this one signal. Cache, branch and field-arithmetic timing inside each pass can still leak — RFC 7664 additionally recommends blinding the quadratic-residue test (not implemented here), and modern WPA3 SAE moved to a hash-to-element derivation. This graph models one historical leakage channel, not the whole Dragonblood attack surface." }),
       el("li", { text: "Neither model produces the honest-run keys — this panel is strictly the side-channel comparison." }),
     ]),
   );

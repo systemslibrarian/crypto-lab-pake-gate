@@ -77,8 +77,12 @@ export class TabView {
   private publisher: WireCard["msg"]["from"] | null = null;
   private pulseTimer: number | null = null;
 
-  // SRP-only registration state.
+  // SRP-only registration state. The record stores only {salt, v}; the plaintext it
+  // was registered with is kept alongside so the observer audit can scan the wire
+  // for the REGISTERED password too, not just the client-entered one (they differ
+  // after a wrong-password run).
   private srpRecord: SrpVerifierRecord | null = null;
+  private srpRegisteredPw: string | null = null;
 
   // password inputs (values kept live).
   private pwPrimary = "";
@@ -124,6 +128,7 @@ export class TabView {
     const pwB = makePassword((this.pwSecondary || this.pwPrimary) || "hunter2");
     switch (this.protocol) {
       case "srp6a": {
+        if (!this.srpRecord) this.srpRegisteredPw = this.pwPrimary || "hunter2";
         const record = this.srpRecord ?? srpRegister(ID_A, this.registeredPassword() || makePassword("hunter2"));
         this.srpRecord = record;
         // client uses pwPrimary (may differ from registered for "wrong password").
@@ -139,7 +144,7 @@ export class TabView {
   }
 
   private reset(keepRecord = true): void {
-    if (!keepRecord && this.protocol === "srp6a") this.srpRecord = null;
+    if (!keepRecord && this.protocol === "srp6a") { this.srpRecord = null; this.srpRegisteredPw = null; }
     this.cards = [];
     this.aux = "none";
     this.activeLauncher = null;
@@ -155,6 +160,20 @@ export class TabView {
 
   private truePassword(): Password {
     return makePassword(this.pwPrimary || "hunter2");
+  }
+
+  /** Every credential in play for the run on screen, labeled, for the observer audit. */
+  private auditTargets(): { label: string; password: Password }[] {
+    if (this.protocol === "srp6a") {
+      return [
+        { label: "the registered password", password: makePassword(this.srpRegisteredPw ?? (this.pwPrimary || "hunter2")) },
+        { label: "the client-entered password", password: makePassword(this.pwPrimary || "hunter2") },
+      ];
+    }
+    return [
+      { label: "Peer A's password", password: makePassword(this.pwPrimary || "hunter2") },
+      { label: "Peer B's password", password: makePassword((this.pwSecondary || this.pwPrimary) || "hunter2") },
+    ];
   }
 
   // --- build static layout ---
@@ -193,6 +212,7 @@ export class TabView {
         el("span", { class: badgeClass, text: family }),
         el("span", { class: "explainer__std", text: row.standardization }),
       ]),
+      row.profile ? el("p", { class: "explainer__profile", text: row.profile }) : undefined,
       el("p", { class: "explainer__what", text: DEMONSTRATES[this.protocol] }),
       el("p", { class: "explainer__try" }, [
         el("strong", { text: "Try it: " }),
@@ -225,7 +245,8 @@ export class TabView {
 
     if (this.protocol === "srp6a") {
       const reg = button("Register {salt, v}", () => {
-        this.srpRecord = srpRegister(ID_A, makePassword(this.pwPrimary || "hunter2"));
+        this.srpRegisteredPw = this.pwPrimary || "hunter2";
+        this.srpRecord = srpRegister(ID_A, makePassword(this.srpRegisteredPw));
         this.reset(true);
       }, { class: "btn--secondary", title: "One-time: derive and store the verifier record" });
       fields.append(el("div", { class: "field field--action" }, [reg]));
@@ -297,6 +318,13 @@ export class TabView {
     ]);
     stepper.append(stepBtn, resetBtn, wireToggle);
     this.controlsHost.append(stepper);
+
+    // The password fields are deliberately type="text": this lab displays passwords
+    // in the scratchpads as part of the lesson, so masking the input would be
+    // theater. The honest move is to say so and steer real credentials away.
+    this.controlsHost.append(
+      el("p", { class: "controls__pw-note", text: "Demo input — anything typed here is shown on screen by design. Use a throwaway phrase, never a real password." }),
+    );
   }
 
   // --- actions ---
@@ -381,7 +409,7 @@ export class TabView {
         const good = (this.pwPrimary || "hunter2").replace(/-WRONG$/, "");
         this.pwPrimary = good;
         this.pwSecondary = good;
-        if (this.protocol === "srp6a") this.srpRecord = srpRegister(ID_A, makePassword(good));
+        if (this.protocol === "srp6a") { this.srpRegisteredPw = good; this.srpRecord = srpRegister(ID_A, makePassword(good)); }
         this.armedTamper = null;
         this.aux = "none";
         this.cards = [];
@@ -394,6 +422,7 @@ export class TabView {
         const good = (this.pwPrimary || "hunter2").replace(/-WRONG$/, "");
         if (this.protocol === "srp6a") {
           // register with the good password, then run the client with a wrong one.
+          this.srpRegisteredPw = good;
           this.srpRecord = srpRegister(ID_A, makePassword(good));
           this.pwPrimary = good + "-WRONG";
         } else {
@@ -421,7 +450,8 @@ export class TabView {
       case "breach": {
         this.aux = "breach";
         if (this.protocol === "srp6a" && !this.srpRecord) {
-          this.srpRecord = srpRegister(ID_A, makePassword(this.pwPrimary || "hunter2"));
+          this.srpRegisteredPw = this.pwPrimary || "hunter2";
+          this.srpRecord = srpRegister(ID_A, makePassword(this.srpRegisteredPw));
         }
         break;
       }
@@ -540,7 +570,7 @@ export class TabView {
     clear(this.auxHost);
     switch (this.aux) {
       case "observer":
-        this.auxHost.append(renderObserverPanel(this.protocol, this.transcript(), this.truePassword()));
+        this.auxHost.append(renderObserverPanel(this.protocol, this.transcript(), this.auditTargets()));
         break;
       case "breach":
         if (this.protocol === "srp6a") {

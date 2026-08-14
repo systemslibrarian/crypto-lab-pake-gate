@@ -82,7 +82,10 @@ export class CPaceRunner extends StepMachine implements Runner {
     const t = p.trace;
     const scratch: ScratchRow[] = [
       { label: "Y (self, sent)", plain: "my public share", term: "gpow", value: t.Yself ? bytesHex(t.Yself) : "—", secret: false },
-      { label: "K (shared point)", plain: "my raw shared secret", term: "premaster", value: t.K ? bytesHex(t.K.toBytes()) : "—", secret: true },
+      // The draft forbids exposing raw K (leaking it enables an offline dictionary
+      // attack); real CPace applications export ISK only. Shown here, labeled, in
+      // the teaching scratchpad — never on the wire or in the observer view.
+      { label: "K (shared point)", plain: "my raw shared secret — apps must never expose K, only ISK; revealed here purely to teach the derivation", term: "premaster", value: t.K ? bytesHex(t.K.toBytes()) : "—", secret: true },
       { label: "ISK (session key)", plain: "my session key", term: "isk", value: t.isk ? bytesHex(t.isk) : "—", secret: true },
       { label: "mac_key", plain: "my confirmation key", term: "confirmtag", value: t.macKey ? bytesHex(t.macKey) : "—", secret: true },
     ];

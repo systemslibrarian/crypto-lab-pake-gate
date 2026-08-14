@@ -25,8 +25,15 @@ const DICTIONARY = [
   "correct-horse", "s3cr3t!", "openupplease", "trustno1", "qwerty12",
 ] as const;
 
-/** Split a learner-typed candidate list on commas / whitespace. */
-function parseExtraGuesses(raw: string): string[] {
+/**
+ * Cap on learner-typed extra candidates per grind run. Each candidate costs one
+ * synchronous 4096-bit modular exponentiation (~a few ms) on the UI thread, so an
+ * unbounded pasted dictionary would freeze the page for its whole duration.
+ */
+export const MAX_EXTRA_CANDIDATES = 64;
+
+/** Split a learner-typed candidate list on commas / whitespace; dedupe, then cap. */
+export function parseExtraGuesses(raw: string): { extras: string[]; dropped: number } {
   const seen = new Set<string>(DICTIONARY);
   const out: string[] = [];
   for (const token of raw.split(/[,\s]+/)) {
@@ -35,18 +42,44 @@ function parseExtraGuesses(raw: string): string[] {
     seen.add(t);
     out.push(t);
   }
-  return out;
+  const extras = out.slice(0, MAX_EXTRA_CANDIDATES);
+  return { extras, dropped: out.length - extras.length };
 }
 
 // --- On-path observer -------------------------------------------------------
 
+/** One credential the observer audit scans the wire for, with its provenance. */
+export interface AuditTarget {
+  /** e.g. "the registered password", "Peer B's password". */
+  readonly label: string;
+  readonly password: Password;
+}
+
 export function renderObserverPanel(
   protocol: ProtocolId,
   transcript: readonly WireMsg[],
-  truePassword: Password,
+  /**
+   * EVERY credential in play for the run on screen. After an SRP wrong-password
+   * run the registered password and the client-entered one differ; the audit used
+   * to scan only the client-entered value and say "the password" — leaving the
+   * registered password unscanned and the scope unstated. Both matter, and the
+   * verdict must say exactly what was scanned.
+   */
+  targets: readonly AuditTarget[],
 ): HTMLElement {
   const balanced = protocol !== "srp6a";
-  const audit = auditTranscript(transcript, truePassword);
+  // Dedupe identical password values but keep every label for the scope line.
+  const unique: AuditTarget[] = [];
+  for (const t of targets) {
+    if (!unique.some((u) => u.password === t.password)) unique.push(t);
+  }
+  const audits = unique.map((t) => ({ target: t, audit: auditTranscript(transcript, t.password) }));
+  const clean = audits.every((a) => a.audit.clean);
+  const hitCount = audits.reduce((n, a) => n + a.audit.hits.length, 0);
+  const labels = targets.map((t) => t.label);
+  const scope =
+    labels.join(" and ") +
+    (unique.length === 1 && targets.length > 1 ? " (identical in this run)" : "");
 
   const section = el("section", { class: "attacker", "aria-labelledby": "obs-h" }, [
     el("h2", { id: "obs-h", class: "attacker__title", text: "On-path observer" }),
@@ -54,11 +87,11 @@ export function renderObserverPanel(
   ]);
 
   section.append(
-    el("div", { class: "attacker__audit " + (audit.clean ? "ok" : "bad") }, [
-      el("strong", { text: audit.clean ? "Transcript audit: clean" : "Transcript audit: HIT" }),
-      el("span", { text: audit.clean
-        ? " — the password appears in no recognized encoding across any wire field (compile-time barrier is the real guarantee; this scan is a secondary backstop)."
-        : ` — ${audit.hits.length} hit(s); investigate.` }),
+    el("div", { class: "attacker__audit " + (clean ? "ok" : "bad") }, [
+      el("strong", { text: clean ? "Transcript audit: clean" : "Transcript audit: HIT" }),
+      el("span", { text: clean
+        ? ` — scanned for ${scope}: no recognized encoding of ${unique.length > 1 ? "either" : "it"} appears in any wire field (compile-time barrier is the real guarantee; this scan is a secondary backstop).`
+        : ` — ${hitCount} hit(s) scanning for ${scope}; investigate.` }),
     ]),
   );
 
@@ -238,7 +271,7 @@ function renderVerifierColumn(record: SrpVerifierRecord): HTMLElement {
     el("p", { class: "race__sub", text: "For each candidate recompute v' = g^{H(salt, H(I:candidate))} and test v' == v. Real modular exponentiation, at the attacker's own pace, fully offline — no server involved and no rate limit to hit." }),
     el("p", { class: "race__sub", text: "The wordlist below is fixed and does not know the demo's password. Change the password in the header to something outside it and this attack genuinely finds nothing — the only thing standing between the breached record and the password is whether the password is guessable." }),
   ]);
-  const { wrap, input } = labeledInput("Extra candidates to add to the wordlist (comma or space separated)", {
+  const { wrap, input } = labeledInput(`Extra candidates to add to the wordlist (comma or space separated, up to ${MAX_EXTRA_CANDIDATES} per run)`, {
     id: "srp-extra-guesses",
     type: "text",
     placeholder: "e.g. correct horse battery staple",
@@ -250,7 +283,7 @@ function renderVerifierColumn(record: SrpVerifierRecord): HTMLElement {
   col.append(
     button("Run offline grind", () => {
       out.replaceChildren();
-      const extras = parseExtraGuesses(input.value);
+      const { extras, dropped } = parseExtraGuesses(input.value);
       const dict: string[] = [...DICTIONARY, ...extras];
       const p = SRP_TRACK2_4096_SHA256;
       let n = 0;
@@ -271,6 +304,11 @@ function renderVerifierColumn(record: SrpVerifierRecord): HTMLElement {
       }
       const elapsedMs = performance.now() - t0;
       counter.textContent = `candidates tested: ${n}${extras.length > 0 ? ` (${DICTIONARY.length} wordlist + ${extras.length} yours)` : ""}`;
+      if (dropped > 0) {
+        out.append(
+          el("p", { class: "race__sub", text: `${dropped} extra candidate(s) over the ${MAX_EXTRA_CANDIDATES}-per-run cap were not tested — each test is a real 4096-bit modular exponentiation on this thread, and an unbounded list would freeze the page. A real attacker has no such cap.` }),
+        );
+      }
       // The rate is MEASURED from the loop that just ran, in this tab, on this
       // machine. It used to read "billions of candidates per GPU-day" — a figure
       // nothing in the lab computes and nothing here can support.

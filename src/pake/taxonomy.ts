@@ -17,6 +17,12 @@ export interface TaxonomyRow {
   readonly quantumResistant: boolean;
   readonly constructionFamily: ConstructionFamily;
   readonly standardization: string;
+  /**
+   * What THIS lab's engine actually runs, stated beside the standard so the tab
+   * never implies the panel is a literal reproduction of the RFC/draft. Absent on
+   * reference-only rows (OPAQUE), which run nothing here.
+   */
+  readonly profile?: string;
   readonly deployment: string;
   /** one-line "reach for it when…". */
   readonly reachFor: string;
@@ -36,6 +42,8 @@ export const TAXONOMY: TaxonomyRow[] = [
     constructionFamily: "DH-group",
     standardization:
       "RFC 5054 (Informational) — its k = H(N | PAD(g)) is the SRP-6a arithmetic this lab runs; RFC 2945 (Proposed Standard) is the earlier SRP-3 with SHA_Interleave",
+    profile:
+      "This panel runs the PAKE-Gate Track-2 profile: RFC 5054 arithmetic (vector-tested), with a custom 4096-bit/SHA-256 construction for K, M1 and M2 — not an RFC-specified K/M1/M2.",
     deployment: "iCloud Keychain; a former TLS-SRP ciphersuite",
     reachFor:
       "an augmented PAKE with wide deployment history where the server must not hold the password.",
@@ -52,6 +60,8 @@ export const TAXONOMY: TaxonomyRow[] = [
     quantumResistant: false,
     constructionFamily: "DH-group",
     standardization: "RFC 8236 (Informational), Schnorr NIZK per RFC 8235; ISO/IEC 11770-4",
+    profile:
+      "This panel runs a PAKE-Gate profile: RFC 8236 algebra with a pinned 3072-bit MODP group, password-to-scalar mapping, HKDF and confirmation encoding (validated by local KATs, not published vectors).",
     deployment: "Thread (IoT) commissioning; Pale Moon Sync; Firefox Sync 1.1 (retired 2015)",
     reachFor:
       "a symmetric/balanced setting (two peers, same secret) with no asymmetric verifier database.",
@@ -69,6 +79,8 @@ export const TAXONOMY: TaxonomyRow[] = [
     constructionFamily: "DH-group",
     standardization:
       "draft-irtf-cfrg-cpace-21 — an ACTIVE CFRG Internet-Draft (intended Informational RFC); NOT yet an RFC (never 'RFC 9836')",
+    profile:
+      "This panel runs the draft-21 CPace-ristretto255-SHA-512 core (matched byte-for-byte to the published vectors through ISK) plus a pinned §10.4-style confirmation the draft leaves open.",
     deployment: "the CFRG-selected balanced PAKE; reference implementations exist, broad deployment still early",
     reachFor:
       "a compact modern balanced PAKE — the CFRG's recommended choice for new balanced designs.",
@@ -84,6 +96,8 @@ export const TAXONOMY: TaxonomyRow[] = [
     quantumResistant: false,
     constructionFamily: "DH-group",
     standardization: "RFC 7664 (Informational); IEEE 802.11 SAE builds 802.11 framing on top",
+    profile:
+      "This panel runs a PAKE-Gate profile DERIVED from RFC 7664, not a literal reproduction: the identity encoding, y-parity source and KDF label deviate from §3.2.1 (documented in the vector provenance).",
     deployment: "WPA3 personal (SAE)",
     reachFor:
       "network access authentication where the two peers share one secret; the family behind WPA3.",

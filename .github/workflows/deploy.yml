@@ -27,11 +27,15 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # The unit/vector/phase-machine suite must block publishing, not just show up
+      # as a separate red check on ci.yml.
+      - name: Unit and vector gate
+        run: npm run test
       - run: npm run build
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
-      - name: Accessibility gate (axe-core, WCAG A/AA)
-        run: npm run test:a11y
+      - name: Browser claims and accessibility gate
+        run: npm run test:e2e
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
