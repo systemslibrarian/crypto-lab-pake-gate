@@ -94,4 +94,4 @@ below 640px.
 ---
 
 *Part of the Crypto Lab suite. This build produces the demo logic, UI, and content; a separate
-standardization pass owns the shared header, theme toggle, and footer.*
+standardization pass owns the shared header and footer.*
