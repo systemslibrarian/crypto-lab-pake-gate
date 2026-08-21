@@ -24,7 +24,11 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          # Must track ci.yml's matrix floor. jsdom 30 does not run on Node 20, and
+          # this job's `npm run test` is the same suite -- left at 20 it would drop
+          # the three jsdom files without failing, since this job has no coverage
+          # floor to catch it, and ship the build anyway.
+          node-version: 22
           cache: npm
       - run: npm ci
       # The unit/vector/phase-machine suite must block publishing, not just show up
