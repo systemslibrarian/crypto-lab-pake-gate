@@ -4,8 +4,11 @@
 // (invariant #7, edge cases). There is NO single permissive generic decoder — a
 // blanket "reject any identity element" would wrongly abort valid J-PAKE handshakes.
 
-import { RistrettoPoint } from "@noble/curves/ed25519.js";
-import { p256 } from "@noble/curves/p256.js";
+// @noble/curves v2 renamed these entry points: ristretto255 ships as a bundle
+// instead of a bare `RistrettoPoint` export, and p256 moved from its own module
+// into nist.js. The primitives underneath are unchanged.
+import { ristretto255, ristretto255_hasher } from "@noble/curves/ed25519.js";
+import { p256 } from "@noble/curves/nist.js";
 import { mod, invert, pow } from "@noble/curves/abstract/modular.js";
 import { HandshakeAbort, type Hex } from "./types";
 import { fromHex, i2osp, os2ip, padTo, toHex } from "./encoding";
@@ -91,12 +94,12 @@ export function decodeJPakeElement(
 // group element (ristretto absorbs the cofactor); we additionally reject the
 // identity, which CPace forbids for K and for the generator.
 // ---------------------------------------------------------------------------
-export type RistPoint = InstanceType<typeof RistrettoPoint>;
+export type RistPoint = InstanceType<typeof ristretto255.Point>;
 
 export function decodeRistrettoElement(h: Hex, field: string): RistPoint {
   let P: RistPoint;
   try {
-    P = RistrettoPoint.fromHex(h);
+    P = ristretto255.Point.fromHex(h);
   } catch {
     throw new HandshakeAbort(
       `CPace ${field} not a canonical ristretto255 encoding`,
@@ -118,14 +121,20 @@ export function ristrettoToHex(P: RistPoint): Hex {
 
 /** Ristretto one-way map from 64 uniform bytes (CPace element_derivation). */
 export function ristrettoFromUniform(bytes64: Uint8Array): RistPoint {
-  return RistrettoPoint.hashToCurve(bytes64);
+  // v1's `RistrettoPoint.hashToCurve(bytes64)` is v2's `deriveToCurve` — the RFC
+  // 9496 §4.3.4 element derivation over 64 uniform bytes. v2's `hashToCurve` is
+  // NOT the same function: it XMD-expands the message first (RFC 9380), which
+  // would change every CPace generator. The shared hasher shape types
+  // deriveToCurve as optional because some curves lack it; ristretto255 always
+  // has it, and the official CPace vectors in tests/ prove the map is unchanged.
+  return ristretto255_hasher.deriveToCurve!(bytes64);
 }
 
 // ---------------------------------------------------------------------------
 // Dragonfly / P-256 element decoding. Uncompressed SEC1 (65 bytes, 0x04||X||Y),
 // must be on-curve and not the identity. Reflection is checked by the engine.
 // ---------------------------------------------------------------------------
-export type P256Point = ReturnType<typeof p256.Point.fromHex>;
+export type P256Point = ReturnType<typeof p256.Point.fromBytes>;
 
 export const P256 = p256;
 export const P256_FIELD_P: bigint = p256.Point.Fp.ORDER; // field prime p
@@ -141,7 +150,9 @@ export function decodeDragonflyCommitElement(h: Hex, field: string): P256Point {
   }
   let P: P256Point;
   try {
-    P = p256.Point.fromHex(bytes);
+    // v2's fromHex() takes a hex string only; fromBytes() is the byte-taking
+    // decoder it already delegated to in v1.
+    P = p256.Point.fromBytes(bytes);
     P.assertValidity();
   } catch {
     throw new HandshakeAbort(
