@@ -10,9 +10,14 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       exclude: ["src/main.ts", "src/**/*.d.ts"],
       reporter: ["text-summary", "text", "html"],
-      // Enforce a high floor on the CRYPTO CORE only (below current ~93%/82% so it
+      // Enforce a high floor on the CRYPTO CORE only (below current ~92%/83% so it
       // gates regressions without being brittle). The teaching UI is measured but not
       // gated — it is exercised structurally by the jsdom + runner tests.
+      //
+      // Those headline numbers moved when vitest went 2 -> 4 without the code
+      // changing: v8 coverage is now remapped through the AST, so the statement and
+      // branch denominators are the source's, not the transpiled bundle's. The floor
+      // below is unchanged; tests/encoding.test.ts was added to clear it.
       thresholds: {
         "src/pake/**/*.ts": {
           statements: 90,
