@@ -10,7 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: [20, 22]
+        # Two Node majors, floor raised 20 -> 22 on 2026-08-21. Node 20 went EOL
+        # 2026-04-30 and the toolchain followed: jsdom 30 declares
+        # "^22.22.2 || ^24.15.0 || >=26.0.0" and pulls undici 8 (">=22.19.0"),
+        # which calls worker_threads.markAsUncloneable -- added in Node 22.10 and
+        # never backported. On 20 that throws inside the pool worker, so the three
+        # jsdom suites never start; vitest still prints "18 passed" and only the
+        # coverage floor notices the missing files. Testing on an EOL runtime that
+        # silently drops suites is worth less than testing on 24.
+        node: [22, 24]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
