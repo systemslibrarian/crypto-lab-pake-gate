@@ -5,7 +5,9 @@
 // only string shape permitted to cross the wire (see types.ts / invariant #1).
 
 import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
-import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
+// @noble/curves v2 moved the byte<->integer helpers from abstract/utils.js up to
+// the package-root utils.js. Same functions, same encoding.
+import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/utils.js";
 import type { Hex } from "./types";
 
 export function toHex(b: Uint8Array): Hex {

@@ -63,8 +63,11 @@ import {
 export const DRAGONFLY_K = 40; // minimum hunting-and-pecking iterations
 const PE_LABEL = utf8Nfc("Dragonfly-PAKE-Gate-PE-v1");
 const KEY_LABEL = utf8Nfc("Dragonfly Key Derivation");
-const A_COEFF = P256.CURVE.a; // -3 mod p
-const B_COEFF = P256.CURVE.b;
+// @noble/curves v2 exposes the curve parameters through Point.CURVE() instead of
+// a `.CURVE` property on the ECDSA bundle. Same P-256 constants.
+const P256_CURVE = P256.Point.CURVE();
+const A_COEFF = P256_CURVE.a; // -3 mod p
+const B_COEFF = P256_CURVE.b;
 
 /** length-prefixed identity encoding: uint16_be(len) || NFC(id). */
 export function encodeId(id: string): Uint8Array {
