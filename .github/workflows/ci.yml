@@ -31,13 +31,35 @@ jobs:
       - run: npm run coverage # runs all tests + enforces the src/pake coverage floor
       - run: npm run build
 
+  # The browser gate the Pages deploy runs, called from the single file that
+  # defines it. Before this, auto-merge below was gated on `test` alone while
+  # deploy.yml ran the Playwright claims and axe WCAG suite, so a bump that broke
+  # only the browser gate passed CI, merged itself, and then failed the deploy on
+  # a merge commit with no pull request watching -- main stops shipping and
+  # nothing anywhere goes red. crypto-lab-e91 was found serving a stale build in
+  # exactly that shape.
+  #
+  # Pull requests only. On a push to main the identical gate already runs inside
+  # deploy.yml, where it actually blocks publishing; a second copy here would
+  # gate nothing. Skipping it on push cannot let a bump through, because a
+  # skipped `needs:` skips its dependent -- the failure direction is "does not
+  # merge".
+  browser-gate:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/browser-gate.yml
+
   # Dependabot only. Depends on every gate job in this workflow, so a bump can
   # only merge itself once this lab's whole PR gate went green. Majors are
   # excluded -- the 2026-08-18 batch had to hold back 109 bumps and they were
   # overwhelmingly majors (@noble v2 dropped export subpaths, TypeScript 7,
   # vitest 4), so those still want a human.
   dependabot-auto-merge:
-    needs: test
+    # Both gate jobs. deploy.yml's `deploy` needs the same browser-gate
+    # definition, and that equality is the whole invariant: nothing can merge
+    # itself past a check the deploy will later insist on.
+    needs: [test, browser-gate]
     if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:

@@ -1,0 +1,61 @@
+# The browser gate -- unit/vector suite, production build, Playwright claims and
+# axe WCAG -- defined ONCE here and called from both workflows that need it.
+#
+# Why a reusable workflow and not a job copied into each file: `needs:` cannot
+# cross workflow files, so the only way deploy.yml's `deploy` job and ci.yml's
+# `dependabot-auto-merge` job can depend on the *same* gate is for each file to
+# contain a job that runs it. Copying these steps into both files would be two
+# definitions of the gate, which is precisely how they drift apart again.
+#
+# What this file must NOT absorb: ci.yml's Node [22, 24] matrix and its
+# `npm run coverage`. A job that uploads a Pages artifact cannot be a matrix job,
+# so folding the matrix in here would force dropping a Node leg and swapping the
+# coverage run for `npm test` -- deleting the src/pake coverage floor, which is
+# the only thing that notices when the jsdom suites silently fail to start on an
+# unsupported Node while vitest still prints green (see the comment on the matrix
+# in ci.yml). The matrix stays in ci.yml; auto-merge depends on both jobs.
+#
+# And dependabot-auto-merge must NOT move in here: a called workflow may not
+# request more permission than its caller grants, so asking for contents: write
+# in this file would kill the deploy at startup with only "workflow file issue"
+# to explain it. It stays in ci.yml. (audits/_MASTER-TEMPLATE.md 6.1)
+name: Browser gate
+
+on:
+  workflow_call:
+    inputs:
+      upload_pages_artifact:
+        description: >-
+          Upload dist/ as the GitHub Pages artifact. Only the deploy caller sets
+          this; the pull-request caller runs the identical gate and publishes
+          nothing. It changes what happens AFTER the gate, never the gate.
+        type: boolean
+        default: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          # Must track ci.yml's matrix floor. jsdom 30 does not run on Node 20, and
+          # this job's `npm run test` is the same suite -- left at 20 it would drop
+          # the three jsdom files without failing, since this job has no coverage
+          # floor to catch it, and ship the build anyway.
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The unit/vector/phase-machine suite must block publishing, not just show up
+      # as a separate red check on ci.yml.
+      - name: Unit and vector gate
+        run: npm run test
+      - run: npm run build
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser claims and accessibility gate
+        run: npm run test:e2e
+      - uses: actions/upload-pages-artifact@v5
+        if: inputs.upload_pages_artifact
+        with:
+          path: dist

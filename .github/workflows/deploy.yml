@@ -18,34 +18,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The gate itself lives in .github/workflows/browser-gate.yml so that ci.yml's
+  # dependabot-auto-merge job can require the very same definition -- `needs:`
+  # cannot cross files, but a reusable workflow can be called from both. This job
+  # keeps the name `build` so `deploy: needs: build` below is unchanged, and it
+  # deliberately declares no `permissions:` so the called workflow inherits this
+  # file's workflow-level grant, which is what upload-pages-artifact needs.
   build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          # Must track ci.yml's matrix floor. jsdom 30 does not run on Node 20, and
-          # this job's `npm run test` is the same suite -- left at 20 it would drop
-          # the three jsdom files without failing, since this job has no coverage
-          # floor to catch it, and ship the build anyway.
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      # The unit/vector/phase-machine suite must block publishing, not just show up
-      # as a separate red check on ci.yml.
-      - name: Unit and vector gate
-        run: npm run test
-      - run: npm run build
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-      - name: Browser claims and accessibility gate
-        run: npm run test:e2e
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: dist
+    uses: ./.github/workflows/browser-gate.yml
+    with:
+      upload_pages_artifact: true
 
   deploy:
     needs: build
+    # This workflow has no pull_request trigger, so the condition is true today;
+    # it is here so that adding one later cannot start publishing from a pull
+    # request. `!= 'pull_request'` and never `== 'push'` -- the latter reads the
+    # same and also skips workflow_dispatch, which would disable the
+    # post-auto-merge dispatch in ci.yml that is the only reason main deploys at
+    # all after a bump merges itself.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
