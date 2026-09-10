@@ -95,3 +95,5 @@ below 640px.
 
 *Part of the Crypto Lab suite. This build produces the demo logic, UI, and content; a separate
 standardization pass owns the shared header and footer.*
+
+<!-- throwaway: verifying the pull-request gate wiring; this branch is deleted unmerged -->
