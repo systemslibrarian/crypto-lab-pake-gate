@@ -2,7 +2,7 @@
 // has to know nonce internals. Secrets are generated per-session in memory via the
 // platform CSPRNG and never persisted (WebCrypto in the browser, node:crypto in tests).
 
-import { randomBytes } from "@noble/hashes/utils";
+import { randomBytes } from "@noble/hashes/utils.js";
 import { i2ospLE, os2ip, os2ipLE, prependLen, utf8Nfc } from "./encoding";
 import {
   SRP_TRACK2_4096_SHA256,

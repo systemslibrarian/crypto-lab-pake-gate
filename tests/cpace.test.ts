@@ -3,7 +3,7 @@ import { CPaceParty, RISTRETTO255_ORDER, calculateGenerator, type CPaceConfig } 
 import { i2ospLE, os2ipLE, prependLen, lvCat, oCat, utf8Nfc, fromHex } from "../src/pake/encoding";
 import { asPassword } from "../src/pake/types";
 import { Wire } from "../src/pake/wire";
-import { sha256 } from "@noble/hashes/sha2";
+import { sha256 } from "@noble/hashes/sha2.js";
 
 // NOTE ON VALIDATION: the CPace core follows draft-irtf-cfrg-cpace-21 (ristretto255/
 // SHA-512, parallel mode) and is validated byte-for-byte against the PUBLISHED draft
