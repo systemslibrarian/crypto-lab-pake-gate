@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "SRP-6a, J-PAKE, CPace, and Dragonfly (RFC 7664) side by side — a live tour of the PAKE family.",
+  "description": "SRP-6a, J-PAKE, CPace, and Dragonfly (RFC 7664) side by side \u2014 a live tour of the PAKE family.",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@noble/curves": "^2.4.0",
-    "@noble/hashes": "^1.5.0"
+    "@noble/hashes": "^2.4.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

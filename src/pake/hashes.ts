@@ -3,10 +3,10 @@
 // the engines and KATs stay deterministic and testable without async ceremony. These
 // are real implementations — nothing here is simulated.
 
-import { sha1 } from "@noble/hashes/sha1";
-import { sha256, sha512 } from "@noble/hashes/sha2";
-import { hmac } from "@noble/hashes/hmac";
-import { extract as hkdfExtract, expand as hkdfExpand } from "@noble/hashes/hkdf";
+import { sha1 } from "@noble/hashes/legacy.js";
+import { sha256, sha512 } from "@noble/hashes/sha2.js";
+import { hmac } from "@noble/hashes/hmac.js";
+import { extract as hkdfExtract, expand as hkdfExpand } from "@noble/hashes/hkdf.js";
 import { concat, uint32be } from "./encoding";
 
 export const SHA1 = (...m: Uint8Array[]) => sha1(concat(...m));
