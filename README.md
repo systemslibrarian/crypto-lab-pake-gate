@@ -69,6 +69,10 @@ npm run typecheck  # tsc --noEmit
 npm run lint       # eslint (bans unsafe casts in src/pake — the password barrier)
 ```
 
+ESLint 10 reads `eslint.config.mjs`. The migration retains the previous enabled rules, password-core assertion selectors, ECMAScript 2022/module parser mode, effective global names and writability, and tracked TypeScript/ignore boundaries. The previous transitive `globals` 13.24.0 is declared directly to preserve that environment footprint. It also retains the three rules dropped from newer recommended presets and explicitly preserves constant-loop and block-function checks whose defaults became less strict. The older `.eslintrc.cjs` remains a historical reference.
+
+`npm run lint` also runs `npm run test:lint`: seven Node controls compare the captured ESLint 8 baseline at `8cfae8ec5f15f2889f934e87a2d7a9dd77f36d4b` and exercise unsafe assertion, ordinary-branding, scope, constant-loop, block-function, semicolon and indentation cases. `tests/fixtures/lint-baseline.json` records that historical configuration and dependency versions; it is not a new source-review claim.
+
 Every engine is validated against **published test vectors where they exist** (SRP RFC 5054
 Appendix B; CPace draft-21 ristretto255/SHA-512) and against **independent from-scratch
 Python KAT generators** where the RFC publishes none (SRP Track 2, J-PAKE, Dragonfly). Group
