@@ -153,7 +153,14 @@ export function mountApp(root: HTMLElement): void {
   app.append(
     el("section", { class: "seam" }, [
       el("h2", { class: "seam__title", text: "The post-quantum seam" }),
-      el("p", { class: "seam__text", text: "A KEM has no group structure to run a Diffie–Hellman over, so real PQ-PAKEs (CAKE/OCAKE, Noise-KEM-PAKE) encrypt or blind the KEM public key under a password-derived symmetric key (EKE-style) rather than doing PAKE inside the KEM's group. The extension seam therefore consumes KemBackend + PasswordKeyedEncoding, never a Group. See docs/pq-pake-seam.md." }),
+      el("p", { class: "seam__text", text: "A KEM has no group structure to run a Diffie–Hellman over, so real PQ-PAKEs (CAKE/OCAKE, Noise-KEM-PAKE) encrypt or blind the KEM public key under a password-derived symmetric key (EKE-style) rather than doing PAKE inside the KEM's group. The extension seam therefore consumes KemBackend + PasswordKeyedEncoding, never a Group. This extension is unimplemented; all four runnable engines remain classical." }),
+      el("p", { class: "seam__text", text: "Research update, 13 October 2026: a post-quantum KEM plus a password wrapper is not by itself a quantum security guarantee. A preprint revised 9 October shows that EKE/OEKE can lose universal composability (security when composed with other protocols) under quantum access to idealized symmetric primitives, while certain game-based guarantees still hold. This is a model-conditional theoretical result, not a practical break of the classical engines above." }),
+      el("p", { class: "seam__text" }, [
+        el("a", { href: "https://eprint.iacr.org/2026/2280", target: "_blank", rel: "noreferrer", text: "Bartusek and Januzelli — Natural Barriers to Quantum Extraction (preprint)" }),
+        " · ",
+        el("a", { href: "https://mailarchive.ietf.org/arch/msg/cfrg/wCtFcJB8X3IhmA20mYTLyy-TnqU/", target: "_blank", rel: "noreferrer", text: "Author’s CFRG disclosure, 12 October 2026" }),
+        ". The disclosure reports no concrete OQUAKE attack currently known. Any future PQ-PAKE implementation needs a construction-specific security argument in the intended model.",
+      ]),
     ]),
   );
 
