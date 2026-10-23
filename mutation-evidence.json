@@ -1,0 +1,102 @@
+[
+  {
+    "name": "idle password edits keep the constructor runner",
+    "sourceDiff": "diff --git a/src/ui/tabView.ts b/src/ui/tabView.ts\nindex 1d61cef..e5c1b65 100644\n--- a/src/ui/tabView.ts\n+++ b/src/ui/tabView.ts\n@@ -382,6 +382,7 @@ export class TabView {\n     // it silently so a first manual step uses the values now visible in the\n     // inputs; show the discard notice only when something had actually run.\n     if (discardedVisibleState) this.invalidated = true;\n+    if (!discardedVisibleState) return;\n     this.runner = this.freshRunner();\n     this.runner.setTamper(this.armedTamper);\n     for (const b of this.controlsHost.querySelectorAll(\".btn--launcher\")) {\n",
+    "baseline": "972ce21f697140eeb5263dc54c295290c9e9d27187bf459b5279226169ef78a1",
+    "mutant": "7d5941683bd3ac039a91aedb85388c1c0c755bc5538fb14fd7a4cb3bdfbe754e",
+    "namedTest": "uses the visible J-PAKE inputs instead of the constructor defaults",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "hero collapses passive transcripts and stolen records",
+    "sourceDiff": "diff --git a/src/ui/tabs.ts b/src/ui/tabs.ts\nindex 55cf78e..3293c5c 100644\n--- a/src/ui/tabs.ts\n+++ b/src/ui/tabs.ts\n@@ -35,7 +35,7 @@ export function mountApp(root: HTMLElement): void {\n         el(\"span\", { class: \"cl-hero-why-label\", text: \"WHY IT MATTERS\" }),\n         el(\"p\", {\n           class: \"cl-hero-why-text\",\n-          text: \"A PAKE is NOT “hash the password and send it.” A passive transcript does not give an eavesdropper a direct offline password test. A server breach is different: a stolen SRP verifier supports per-user offline password guessing, while a balanced PAKE stores no server verifier.\",\n+          text: \"A PAKE is NOT “hash the password and send it.” A stolen record and a captured transcript still can't be grinded back to the login.\",\n         }),\n       ]),\n     ]),\n",
+    "baseline": "972ce21f697140eeb5263dc54c295290c9e9d27187bf459b5279226169ef78a1",
+    "mutant": "75dd4c96f3ec745925d90fd8d179d3d65debd78b86a9a29631a91713080c8c6b",
+    "namedTest": "distinguishes passive transcripts from stolen SRP verifier records",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "shortened J-PAKE element encoding is accepted",
+    "sourceDiff": "diff --git a/src/pake/groups.ts b/src/pake/groups.ts\nindex 0688665..381c71b 100644\n--- a/src/pake/groups.ts\n+++ b/src/pake/groups.ts\n@@ -67,7 +67,7 @@ export function decodeJPakeElement(\n   rule: JPakeDecodeRule,\n ): bigint {\n   const encoded = fromHex(h);\n-  if (encoded.length !== group.pLen) {\n+  if (false && encoded.length !== group.pLen) {\n     throw new HandshakeAbort(\n       `J-PAKE ${rule.field} has the wrong encoded length`,\n       `${rule.field} must be exactly ${group.pLen} bytes in this profile; shortened or oversized encodings are rejected.`,\n",
+    "baseline": "972ce21f697140eeb5263dc54c295290c9e9d27187bf459b5279226169ef78a1",
+    "mutant": "838345a6f238bde837c55399c51e654d2849a91ccc33613c8f1f4a503845e32c",
+    "namedTest": "numerically valid but shortened elements are rejected",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "shortened J-PAKE proof encoding is accepted",
+    "sourceDiff": "diff --git a/src/pake/schnorr-nizk.ts b/src/pake/schnorr-nizk.ts\nindex 990829e..c4e26f4 100644\n--- a/src/pake/schnorr-nizk.ts\n+++ b/src/pake/schnorr-nizk.ts\n@@ -96,7 +96,7 @@ export function proofToWire(proof: SchnorrProof, group: JPakeGroupParameters): {\n export function proofFromWire(V: Hex, r: Hex, group: JPakeGroupParameters): SchnorrProof {\n   const encodedV = fromHex(V);\n   const encodedR = fromHex(r);\n-  if (encodedV.length !== group.pLen || encodedR.length !== group.pLen) {\n+  if (false && (encodedV.length !== group.pLen || encodedR.length !== group.pLen)) {\n     throw new HandshakeAbort(\n       \"J-PAKE Schnorr proof has the wrong encoded length\",\n       `V and r must each be exactly ${group.pLen} bytes in this profile; non-canonical encodings are rejected.`,\n",
+    "baseline": "972ce21f697140eeb5263dc54c295290c9e9d27187bf459b5279226169ef78a1",
+    "mutant": "5e66ed071ec22df6596653577d3b34d0d0bbd0ac4f7d01dda29381b94234c78a",
+    "namedTest": "shortened Schnorr fields are rejected before verification",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "J-PAKE Round-1 proof failure is ignored",
+    "sourceDiff": "diff --git a/src/pake/jpake.ts b/src/pake/jpake.ts\nindex c64e900..f80e905 100644\n--- a/src/pake/jpake.ts\n+++ b/src/pake/jpake.ts\n@@ -149,7 +149,7 @@ export class JPakeParty {\n     const proofSecond = proofFromWire(peer.fields[`V${ps}`] as Hex, peer.fields[`r${ps}`] as Hex, this.g);\n     const okFirst = verifySchnorr(this.g, this.g.g, this.gPeerFirst, proofFirst, this.cfg.peerId, this.ctx);\n     const okSecond = verifySchnorr(this.g, this.g.g, this.gPeerSecond, proofSecond, this.cfg.peerId, this.ctx);\n-    if (!okFirst || !okSecond) {\n+    if (false && (!okFirst || !okSecond)) {\n       this.phase = \"aborted\";\n       throw new HandshakeAbort(\n         \"J-PAKE Round-1 Schnorr proof failed\",\n",
+    "baseline": "972ce21f697140eeb5263dc54c295290c9e9d27187bf459b5279226169ef78a1",
+    "mutant": "6eaf6d4416b742cef1b37c0c2b29cc5c39c6772643847de278e2bb68ff913758",
+    "namedTest": "corrupting a Round-1 Schnorr proof",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "J-PAKE confirmation failure is ignored",
+    "sourceDiff": "diff --git a/src/pake/jpake.ts b/src/pake/jpake.ts\nindex c64e900..118b687 100644\n--- a/src/pake/jpake.ts\n+++ b/src/pake/jpake.ts\n@@ -255,7 +255,7 @@ export class JPakeParty {\n     const peerRole: Role = this.cfg.role === \"A\" ? \"B\" : \"A\";\n     const expected = this.macTag(peerRole, this.trace.kc!);\n     const got = fromHex(peer.fields.tag as Hex);\n-    if (!eqBytes(got, expected)) {\n+    if (false && !eqBytes(got, expected)) {\n       this.phase = \"aborted\";\n       throw new HandshakeAbort(\n         \"J-PAKE key confirmation failed\",\n",
+    "baseline": "972ce21f697140eeb5263dc54c295290c9e9d27187bf459b5279226169ef78a1",
+    "mutant": "f863d03fc8133e7a12c4dbeff190589619eb1a279c407b64b65e03c4a4840978",
+    "namedTest": "wrong password: keys differ AND confirmation fails",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "CPace confirmation failure is ignored",
+    "sourceDiff": "diff --git a/src/pake/cpace.ts b/src/pake/cpace.ts\nindex 3f389e8..a2413d0 100644\n--- a/src/pake/cpace.ts\n+++ b/src/pake/cpace.ts\n@@ -181,7 +181,7 @@ export class CPaceParty {\n     if (this.phase !== \"confirm-sent\") throw new PhaseError(\"confirm-sent\", this.phase);\n     const expected = HMAC_SHA512(this.trace.macKey!, lvCat(this.trace.Ypeer!, this.adPeer!));\n     const got = fromHex(peer.fields.tag as Hex);\n-    if (!eqBytes(got, expected)) {\n+    if (false && !eqBytes(got, expected)) {\n       this.phase = \"aborted\";\n       throw new HandshakeAbort(\"CPace confirmation failed\", \"peer MAC tag did not verify — key not established.\");\n     }\n",
+    "baseline": "972ce21f697140eeb5263dc54c295290c9e9d27187bf459b5279226169ef78a1",
+    "mutant": "89fdab91b9b44f7e5b85cb5b61eac23485474eae537fcc8dda3f73c0cb2242a8",
+    "namedTest": "wrong password: ISKs differ and confirmation fails",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "Dragonfly reflection guard is bypassed",
+    "sourceDiff": "diff --git a/src/pake/dragonfly.ts b/src/pake/dragonfly.ts\nindex e1d07ea..12750a5 100644\n--- a/src/pake/dragonfly.ts\n+++ b/src/pake/dragonfly.ts\n@@ -336,7 +336,7 @@ export class DragonflyParty {\n     }\n     const elemPeer = decodeDragonflyCommitElement(peer.fields.element as Hex, \"peer Element\");\n     // Reflection guard: a mirrored commit (same scalar AND element) is refused.\n-    if (scalarPeer === this.scalarSelf && elemPeer.equals(this.elemSelf)) {\n+    if (false && scalarPeer === this.scalarSelf && elemPeer.equals(this.elemSelf)) {\n       this.phase = \"aborted\";\n       throw new HandshakeAbort(\"Dragonfly reflection attack\", \"a mirrored commit must be refused — it would fix the key.\");\n     }\n",
+    "baseline": "972ce21f697140eeb5263dc54c295290c9e9d27187bf459b5279226169ef78a1",
+    "mutant": "2f0ad385b029c721e5ad32ccfb326af363a341ef0c550fdb94146358bf6f0346",
+    "namedTest": "reflection guard: a mirrored commit is rejected",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "Dragonfly honest derivation exits before minimum k",
+    "sourceDiff": "diff --git a/src/pake/dragonfly.ts b/src/pake/dragonfly.ts\nindex e1d07ea..694564b 100644\n--- a/src/pake/dragonfly.ts\n+++ b/src/pake/dragonfly.ts\n@@ -149,7 +149,7 @@ export function derivePasswordElement(\n       }\n     }\n     // minimum-k: keep going to at least k iterations; if not found by k, continue.\n-    if (counter >= k && found !== null) {\n+    if (counter >= 1 && found !== null) {\n       return { PE: found, foundAt, iterations: counter };\n     }\n     counter++;\n",
+    "baseline": "972ce21f697140eeb5263dc54c295290c9e9d27187bf459b5279226169ef78a1",
+    "mutant": "ce06a616e4742f19d8778ac15e2066cbef8d1c219793d38d08159d77881c77c0",
+    "namedTest": "both peers derive the same password element",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "SRP server accepts an invalid client proof",
+    "sourceDiff": "diff --git a/src/pake/srp6a.ts b/src/pake/srp6a.ts\nindex 0b98bf9..6a23e10 100644\n--- a/src/pake/srp6a.ts\n+++ b/src/pake/srp6a.ts\n@@ -294,7 +294,7 @@ export class SrpServerSession {\n     const K = sessionKey(this.p, S);\n     const M1expected = computeM1(this.p, this.record.I, this.record.salt, this.A, this.B, K);\n     const M1 = fromHex(clientProof.fields.M1 as Hex);\n-    if (!eq(M1, M1expected)) {\n+    if (false && !eq(M1, M1expected)) {\n       this.phase = \"aborted\";\n       throw new HandshakeAbort(\"SRP M1 mismatch\", \"client failed to prove knowledge of K — wrong password or tamper.\");\n     }\n",
+    "baseline": "972ce21f697140eeb5263dc54c295290c9e9d27187bf459b5279226169ef78a1",
+    "mutant": "2b454486040790ed9ef0ee9ed753cbb8bb3b56dd87c9cd4e87a2424388b78b61",
+    "namedTest": "server rejects a proof computed from the wrong password",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  }
+]
