@@ -13,12 +13,14 @@
     "test:fast": "vitest run --exclude \"**/params.test.ts\" --exclude \"**/grind.test.ts\"",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
-    "lint": "eslint . --ext .ts && npm run test:lint",
+    "lint": "eslint . --ext .ts && npm run test:lint && npm run test:workflow",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test:a11y": "playwright test e2e/a11y.spec.ts",
     "test:claims": "playwright test e2e/claims.spec.ts",
-    "test:lint": "node --test tests/lint-config.node.mjs"
+    "test:lint": "node --test tests/lint-config.node.mjs",
+    "test:workflow": "node --test tests/workflow-controls.node.mjs",
+    "test:mutations": "node scripts/claim-mutations.mjs"
   },
   "dependencies": {
     "@noble/curves": "^2.4.0",

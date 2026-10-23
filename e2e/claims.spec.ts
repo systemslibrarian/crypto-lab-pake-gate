@@ -331,13 +331,27 @@ for (const protocol of PROTOCOLS) {
   });
 }
 
-test('regression: typing into an untouched tab does not raise a discard notice', async ({
+test('regression: an untouched tab steps with the newly typed credentials', async ({
   page,
 }) => {
   await page.goto('/');
-  await panel(page).locator('#srp6a-pw1').fill('hunter2');
+  await openTab(page, 'jpake');
+  await panel(page).locator('#jpake-pw1').fill('correct horse');
+  await panel(page).locator('#jpake-pw2').fill('different battery');
   await expect(panel(page).locator('.status__expect--stale')).toHaveCount(0);
   expect(await statusPill(page)).toMatch(/^Step 1 of \d+ ready\.$/);
+
+  const step = panel(page).getByRole('button', { name: 'Step ▸' });
+  let count = 0;
+  while (await step.isEnabled()) {
+    await step.click();
+    if (++count > 64) throw new Error('manual runner did not terminate within 64 steps');
+  }
+
+  expect(count).toBeGreaterThan(0);
+  expect(await statusPill(page)).toMatch(/^⚠ /);
+  await expect(panel(page).locator('.status__pill')).toHaveClass(/status__pill--alarm/);
+  await expect(panel(page).locator('.status__pill')).not.toHaveClass(/status__pill--ok/);
 });
 
 // ---------------------------------------------------------------- observer

@@ -7,7 +7,7 @@
 # contain a job that runs it. Copying these steps into both files would be two
 # definitions of the gate, which is precisely how they drift apart again.
 #
-# What this file must NOT absorb: ci.yml's Node [22, 24] matrix and its
+# What this file must NOT absorb: ci.yml's Node [22, 24, 26] matrix and its
 # `npm run coverage`. A job that uploads a Pages artifact cannot be a matrix job,
 # so folding the matrix in here would force dropping a Node leg and swapping the
 # coverage run for `npm test` -- deleting the src/pake coverage floor, which is
@@ -32,20 +32,25 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+
 jobs:
   gate:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           # Must track ci.yml's matrix floor. jsdom 30 does not run on Node 20, and
           # this job's `npm run test` is the same suite -- left at 20 it would drop
-          # the three jsdom files without failing, since this job has no coverage
+          # the jsdom files without failing, since this job has no coverage
           # floor to catch it, and ship the build anyway.
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm audit --audit-level=high
       # The unit/vector/phase-machine suite must block publishing, not just show up
       # as a separate red check on ci.yml.
       - name: Unit and vector gate
@@ -55,7 +60,18 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser claims and accessibility gate
         run: npm run test:e2e
-      - uses: actions/upload-pages-artifact@v5
+      - name: Replay every recorded claim mutation
+        run: npm run test:mutations
+      - name: Preserve exact mutation evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pake-gate-mutation-evidence-${{ github.sha }}
+          path: |
+            mutation-evidence.json
+            mutation-logs/
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         if: inputs.upload_pages_artifact
         with:
           path: dist
