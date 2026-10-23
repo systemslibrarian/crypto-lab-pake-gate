@@ -145,8 +145,8 @@ export class JPakeParty {
       field: fSecond,
       rejectIdentity: true,
     });
-    const proofFirst = proofFromWire(peer.fields[`V${pf}`] as Hex, peer.fields[`r${pf}`] as Hex);
-    const proofSecond = proofFromWire(peer.fields[`V${ps}`] as Hex, peer.fields[`r${ps}`] as Hex);
+    const proofFirst = proofFromWire(peer.fields[`V${pf}`] as Hex, peer.fields[`r${pf}`] as Hex, this.g);
+    const proofSecond = proofFromWire(peer.fields[`V${ps}`] as Hex, peer.fields[`r${ps}`] as Hex, this.g);
     const okFirst = verifySchnorr(this.g, this.g.g, this.gPeerFirst, proofFirst, this.cfg.peerId, this.ctx);
     const okSecond = verifySchnorr(this.g, this.g.g, this.gPeerSecond, proofSecond, this.cfg.peerId, this.ctx);
     if (!okFirst || !okSecond) {
@@ -210,7 +210,7 @@ export class JPakeParty {
       field: "Round-2 element",
       rejectIdentity: false,
     });
-    const proof: SchnorrProof = proofFromWire(peer.fields.V as Hex, peer.fields.r as Hex);
+    const proof: SchnorrProof = proofFromWire(peer.fields.V as Hex, peer.fields.r as Hex, this.g);
     const ok = verifySchnorr(this.g, peerCombined, elemPeer, proof, this.cfg.peerId, this.ctx);
     if (!ok) {
       this.phase = "aborted";

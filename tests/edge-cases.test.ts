@@ -10,6 +10,7 @@ import { padHex } from "../src/pake/groups";
 import { toHex, i2osp } from "../src/pake/encoding";
 import type { Hex } from "../src/pake/types";
 import { HandshakeAbort } from "../src/pake/types";
+import { proofFromWire } from "../src/pake/schnorr-nizk";
 
 const asHex = (s: string) => s as Hex;
 
@@ -40,6 +41,19 @@ describe("Fail-closed edge cases (each rejects with a teaching tooltip)", () => 
     expect(() =>
       decodeJPakeElement(nonResidue, JPAKE_GROUP_3072, { field: "g1", rejectIdentity: false }),
     ).toThrow(/subgroup/);
+  });
+  it("J-PAKE: numerically valid but shortened elements are rejected", () => {
+    const canonicalOne = toHex(i2osp(1n, JPAKE_GROUP_3072.pLen));
+    const shortenedOne = asHex(canonicalOne.slice(2));
+    expect(() =>
+      decodeJPakeElement(shortenedOne, JPAKE_GROUP_3072, { field: "g1", rejectIdentity: false }),
+    ).toThrow(/wrong encoded length/);
+  });
+  it("J-PAKE: shortened Schnorr fields are rejected before verification", () => {
+    const canonical = toHex(i2osp(1n, JPAKE_GROUP_3072.pLen));
+    const shortened = asHex(canonical.slice(2));
+    expect(() => proofFromWire(shortened, canonical, JPAKE_GROUP_3072)).toThrow(/wrong encoded length/);
+    expect(() => proofFromWire(canonical, shortened, JPAKE_GROUP_3072)).toThrow(/wrong encoded length/);
   });
 
   it("CPace: the ristretto255 identity encoding is rejected", () => {

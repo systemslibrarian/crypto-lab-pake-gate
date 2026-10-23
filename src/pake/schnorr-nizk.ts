@@ -14,7 +14,7 @@
 import { SHA256 } from "./hashes";
 import { i2osp, lp16, os2ip, padTo, toHex, utf8Nfc, fromHex } from "./encoding";
 import { modInverse, modMul, modPow } from "./groups";
-import { type Hex } from "./types";
+import { HandshakeAbort, type Hex } from "./types";
 import type { JPakeGroupParameters } from "./params";
 
 export interface SchnorrProof {
@@ -93,8 +93,16 @@ export function proofToWire(proof: SchnorrProof, group: JPakeGroupParameters): {
   return { V: toHex(PADp(proof.V, group)), r: toHex(i2osp(proof.r, group.pLen)) };
 }
 
-export function proofFromWire(V: Hex, r: Hex): SchnorrProof {
-  return { V: os2ip(fromHex(V)), r: os2ip(fromHex(r)) };
+export function proofFromWire(V: Hex, r: Hex, group: JPakeGroupParameters): SchnorrProof {
+  const encodedV = fromHex(V);
+  const encodedR = fromHex(r);
+  if (encodedV.length !== group.pLen || encodedR.length !== group.pLen) {
+    throw new HandshakeAbort(
+      "J-PAKE Schnorr proof has the wrong encoded length",
+      `V and r must each be exactly ${group.pLen} bytes in this profile; non-canonical encodings are rejected.`,
+    );
+  }
+  return { V: os2ip(encodedV), r: os2ip(encodedR) };
 }
 
 export { modInverse };
