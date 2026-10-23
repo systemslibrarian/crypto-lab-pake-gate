@@ -366,13 +366,22 @@ export class TabView {
    * input elements, which would drop focus on every keystroke.
    */
   private invalidateRun(): void {
-    if (this.cards.length === 0 && this.runner.status().kind === "idle") return;
+    const discardedVisibleState =
+      this.cards.length > 0 ||
+      this.runner.status().kind !== "idle" ||
+      this.activeLauncher !== null ||
+      this.aux !== "none";
     this.cards = [];
     this.aux = "none";
     this.activeLauncher = null;
     this.newestIndex = -1;
     this.publisher = null;
-    this.invalidated = true;
+    if (this.pulseTimer !== null) window.clearTimeout(this.pulseTimer);
+    this.pulseTimer = null;
+    // An untouched idle runner still captured the constructor defaults. Refresh
+    // it silently so a first manual step uses the values now visible in the
+    // inputs; show the discard notice only when something had actually run.
+    if (discardedVisibleState) this.invalidated = true;
     this.runner = this.freshRunner();
     this.runner.setTamper(this.armedTamper);
     for (const b of this.controlsHost.querySelectorAll(".btn--launcher")) {

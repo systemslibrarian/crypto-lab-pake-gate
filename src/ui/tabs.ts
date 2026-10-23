@@ -28,14 +28,14 @@ export function mountApp(root: HTMLElement): void {
         el("p", { class: "cl-hero-sub", text: "PAKE · SRP-6a · J-PAKE · CPace · Dragonfly" }),
         el("p", {
           class: "cl-hero-desc",
-          text: "Run four password-authenticated key exchanges for real in your browser and watch each side derive the same session key while the password — and anything grindable offline — never crosses the wire.",
+          text: "Run four password-authenticated key exchanges for real in your browser and watch each side derive a session key without ever sending the password itself. A passive transcript gives no direct offline password test; compromised server storage is a separate, protocol-specific question.",
         }),
       ]),
       el("aside", { class: "cl-hero-why", "aria-label": "Why it matters" }, [
         el("span", { class: "cl-hero-why-label", text: "WHY IT MATTERS" }),
         el("p", {
           class: "cl-hero-why-text",
-          text: "A PAKE is NOT “hash the password and send it.” It defends the weakest secret people actually use — passwords — against eavesdroppers and server breaches, so a stolen record and a captured transcript still can't be grinded back to the login.",
+          text: "A PAKE is NOT “hash the password and send it.” A passive transcript does not give an eavesdropper a direct offline password test. A server breach is different: a stolen SRP verifier supports per-user offline password guessing, while a balanced PAKE stores no server verifier.",
         }),
       ]),
     ]),

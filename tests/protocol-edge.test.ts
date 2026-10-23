@@ -48,6 +48,19 @@ describe("SRP u == 0 guard", () => {
   });
 });
 
+describe("SRP proof verification", () => {
+  it("server rejects a proof computed from the wrong password", () => {
+    const p = SRP_TRACK2_4096_SHA256;
+    const record = register(p, "arthur", asPassword("correct horse"), randomSalt());
+    const client = new SrpClientSession(p, "arthur", asPassword("wrong horse"), 424242n);
+    const server = new SrpServerSession(p, record, 131313n);
+    const clientProof = client.proof(server.hello(client.hello()));
+
+    expect(() => server.proof(clientProof)).toThrow(/M1 mismatch/);
+    expect(server.phase).toBe("aborted");
+  });
+});
+
 describe("J-PAKE structural rejections", () => {
   const nonces = { e1: 3n, e2: 5n, v1: 7n, v2: 11n, vr: 13n };
   it("identical participant ids are rejected", () => {

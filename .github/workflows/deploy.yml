@@ -10,20 +10,19 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: pages-${{ github.ref }}
+  # Never cancel a main deployment midway through publication.
+  cancel-in-progress: false
 
 jobs:
   # The gate itself lives in .github/workflows/browser-gate.yml so that ci.yml's
   # dependabot-auto-merge job can require the very same definition -- `needs:`
   # cannot cross files, but a reusable workflow can be called from both. This job
-  # keeps the name `build` so `deploy: needs: build` below is unchanged, and it
-  # deliberately declares no `permissions:` so the called workflow inherits this
-  # file's workflow-level grant, which is what upload-pages-artifact needs.
+  # keeps the name `build` so `deploy: needs: build` below is unchanged. The
+  # called source-running workflow inherits only this file's contents:read grant;
+  # Pages/OIDC write authority exists solely on the no-checkout deploy job.
   build:
     uses: ./.github/workflows/browser-gate.yml
     with:
@@ -39,9 +38,13 @@ jobs:
     # all after a bump merges itself.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5

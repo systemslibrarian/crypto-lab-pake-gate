@@ -42,4 +42,11 @@ describe("UI renders (jsdom)", () => {
     const tabs = document.querySelectorAll('[role="tab"], [aria-selected]');
     expect(tabs.length).toBeGreaterThan(0);
   });
+
+  it("distinguishes passive transcripts from stolen SRP verifier records", () => {
+    const text = document.body.textContent ?? "";
+    expect(text).toContain("A passive transcript does not give an eavesdropper a direct offline password test.");
+    expect(text).toContain("a stolen SRP verifier supports per-user offline password guessing");
+    expect(text).not.toContain("a stolen record and a captured transcript still can't be grinded back to the login");
+  });
 });
