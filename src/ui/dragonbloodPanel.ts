@@ -64,11 +64,14 @@ export function renderDragonbloodPanel(idA: string, idB: string): HTMLElement {
       ]),
       el("div", { class: "plot__label", text: pw }),
     ]);
-    // The whole group is a button so it is keyboard-operable and named.
+    // The whole group is a button so it is keyboard-operable, and its name
+    // comes from what it shows rather than from a label. axe 4.14 compares the
+    // accessible name against everything a SIGHTED user sees
+    // (label-content-name-mismatch, WCAG 2.5.3 Label in Name), and this button
+    // renders two bar captions and the password, which no short label contains.
     const btn = el("button", {
       type: "button",
       class: "plot__pick",
-      "aria-label": `Explain why “${pw}” took ${lIter} legacy iterations`,
     }, [group]);
     btn.addEventListener("click", () => {
       for (const b of plot.querySelectorAll(".plot__pick")) b.classList.remove("is-active");
