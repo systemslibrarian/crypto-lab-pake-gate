@@ -35,7 +35,7 @@ export function mountApp(root: HTMLElement): void {
         el("span", { class: "cl-hero-why-label", text: "WHY IT MATTERS" }),
         el("p", {
           class: "cl-hero-why-text",
-          text: "A PAKE is NOT “hash the password and send it.” It defends the weakest secret people actually use — passwords — against eavesdroppers and server breaches, so a stolen record and a captured transcript still can't be grinded back to the login.",
+          text: "A PAKE does more than hash and send a password. A passive transcript should not offer an offline password test; what a stolen server record permits depends on the protocol. Compare that difference below before choosing a design.",
         }),
       ]),
     ]),
@@ -153,7 +153,23 @@ export function mountApp(root: HTMLElement): void {
   app.append(
     el("section", { class: "seam" }, [
       el("h2", { class: "seam__title", text: "The post-quantum seam" }),
-      el("p", { class: "seam__text", text: "A KEM has no group structure to run a Diffie–Hellman over, so real PQ-PAKEs (CAKE/OCAKE, Noise-KEM-PAKE) encrypt or blind the KEM public key under a password-derived symmetric key (EKE-style) rather than doing PAKE inside the KEM's group. The extension seam therefore consumes KemBackend + PasswordKeyedEncoding, never a Group. This extension is unimplemented; all four runnable engines remain classical." }),
+      el("p", { class: "seam__text", text: "These four runnable PAKEs use classical group arithmetic. Post-quantum PAKE research takes several approaches: some combine a KEM with a password-based EKE-style step; others build the exchange directly from lattice problems or use lattice-based proof machinery. A post-quantum KEM alone is not a PAKE. The KEM + password interface reserved in this code supports only one proposed design family and is not implemented." }),
+      el("div", { class: "taxonomy__scroll", tabindex: "0", role: "region", "aria-label": "Post-quantum PAKE research families (scrollable)" }, [
+        el("table", { class: "matrix" }, [
+          el("caption", { text: "Research families, not standardized or implemented PAKEs in this lab" }),
+          el("thead", {}, [el("tr", {}, [
+            el("th", { scope: "col", text: "Approach" }),
+            el("th", { scope: "col", text: "How the password enters" }),
+            el("th", { scope: "col", text: "Question to check" }),
+          ])]),
+          el("tbody", {}, [
+            el("tr", {}, [el("th", { scope: "row", text: "KEM + EKE-style wrapper" }), el("td", { text: "Password masks or encrypts an exchange element." }), el("td", { text: "Can the public-key format or a malicious message test a password offline?" })]),
+            el("tr", {}, [el("th", { scope: "row", text: "Direct lattice / reconciliation" }), el("td", { text: "Password influences the lattice-based exchange and reconciliation." }), el("td", { text: "What is proven about guesses, key agreement, and leaked reconciliation signals?" })]),
+            el("tr", {}, [el("th", { scope: "row", text: "Lattice proof-based design" }), el("td", { text: "Password is checked within a protocol using additional proof machinery." }), el("td", { text: "Which proof model, server-compromise model, and side channels are covered?" })]),
+          ]),
+        ]),
+      ]),
+      el("p", { class: "seam__text" }, ["Based on ", el("a", { href: "https://eprint.iacr.org/2025/119", target: "_blank", rel: "noopener noreferrer", text: "Alnahawi et al., SoK: PQC PAKEs (revised 11 September 2026)" }), ". This maps research directions, not a performance ranking, implementation, or standardization claim."]),
       el("p", { class: "seam__text", text: "Research update, 13 October 2026: a post-quantum KEM plus a password wrapper is not by itself a quantum security guarantee. A preprint revised 9 October shows that EKE/OEKE can lose universal composability (security when composed with other protocols) under quantum access to idealized symmetric primitives, while certain game-based guarantees still hold. This is a model-conditional theoretical result, not a practical break of the classical engines above." }),
       el("p", { class: "seam__text" }, [
         el("a", { href: "https://eprint.iacr.org/2026/2280", target: "_blank", rel: "noreferrer", text: "Bartusek and Januzelli — Natural Barriers to Quantum Extraction (preprint)" }),

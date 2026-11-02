@@ -3,8 +3,9 @@
 **SRP-6a · J-PAKE · CPace · Dragonfly (RFC 7664) — the PAKE family, side by side.**
 
 A live, in-browser tour of Password-Authenticated Key Exchange: how two parties turn a
-shared, low-entropy **password** into a strong shared key **without the password (or
-anything an attacker could grind offline) ever crossing the wire**. Real group
+shared, low-entropy **password** into a strong shared key without sending the password
+itself. A passive transcript is not an offline password test; a stolen server verifier
+can still permit per-user offline guesses, depending on the PAKE. Real group
 arithmetic and real hash primitives — SHA-1/256/512, HMAC and HKDF come from
 `@noble/hashes` rather than WebCrypto's async SubtleCrypto (same primitives,
 synchronous, so the engines and KATs stay deterministic); session randomness comes from
@@ -50,6 +51,15 @@ bars are now **click-to-explain**: pick a candidate to see *why* it took that ma
 hunt-and-peck iterations and exactly what the legacy timing difference leaks to an attacker.
 
 ## Run it
+
+The post-quantum research section distinguishes KEM/EKE-style, direct lattice
+reconciliation, and lattice proof-based PAKE families, following [Alnahawi et al.,
+*SoK: PQC PAKEs* (2025; revised 11 September 2026)](https://eprint.iacr.org/2025/119).
+The reserved KEM/password interface models only the first family; no post-quantum
+PAKE runs in this lab. Each candidate needs a construction-specific security argument,
+including password-guessing and server-compromise assumptions. The linked October
+2026 EKE/OEKE research is model-conditional and does not break these classical engines.
+
 
 ```bash
 npm install

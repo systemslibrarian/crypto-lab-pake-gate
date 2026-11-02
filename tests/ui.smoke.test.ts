@@ -23,6 +23,19 @@ describe("UI renders (jsdom)", () => {
     }
   });
 
+  it("distinguishes three post-quantum research families without claiming a runnable engine", () => {
+    const seam = root.querySelector('.seam')!;
+    const rows = Array.from(seam.querySelectorAll('tbody tr'));
+    expect(rows).toHaveLength(3);
+    expect(rows.map(row => row.textContent)).toEqual([
+      expect.stringContaining('KEM + EKE-style wrapper'),
+      expect.stringContaining('Direct lattice / reconciliation'),
+      expect.stringContaining('Lattice proof-based design'),
+    ]);
+    expect(seam.textContent).toContain('not implemented');
+    expect(seam.querySelector('a[href="https://eprint.iacr.org/2025/119"]')).not.toBeNull();
+  });
+
   it("has keyboard-operable controls and labeled inputs (ADA)", () => {
     expect(document.querySelectorAll("button").length).toBeGreaterThan(0);
     const inputs = document.querySelectorAll("input, textarea");
