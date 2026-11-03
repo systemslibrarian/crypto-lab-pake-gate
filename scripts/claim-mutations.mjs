@@ -60,7 +60,7 @@ const cases = [
   [
     "hero collapses passive transcripts and stolen records",
     "src/ui/tabs.ts",
-    "A PAKE is NOT “hash the password and send it.” A passive transcript does not give an eavesdropper a direct offline password test. A server breach is different: a stolen SRP verifier supports per-user offline password guessing, while a balanced PAKE stores no server verifier.",
+    "A PAKE does more than hash and send a password. A passive transcript does not give an eavesdropper a direct offline password test. A server breach is different: a stolen SRP verifier supports per-user offline password guessing, while a balanced PAKE stores no server verifier. Compare that difference below before choosing a design.",
     "A PAKE is NOT “hash the password and send it.” A stolen record and a captured transcript still can't be grinded back to the login.",
     vitest("tests/ui.smoke.test.ts", "distinguishes passive transcripts from stolen SRP verifier records"),
   ],
