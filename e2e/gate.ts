@@ -290,10 +290,24 @@ export async function boot(page: Page, theme: 'dark' | 'light'): Promise<void> {
   // No auxiliary panel exists until a launcher builds one.
   await expect(page.locator('.aux > *')).toHaveCount(0);
 
-  // The taxonomy matrix is static content and is on the page from first paint —
-  // it is the widest thing this lab renders (a 900px `min-width` table) and the
-  // reflow oracle needs it present in every state, not just late ones.
-  await expect(page.locator('.matrix tbody tr')).toHaveCount(5);
+  // The taxonomy matrices are static content and are on the page from first
+  // paint — they are the widest things this lab renders (900px `min-width`
+  // tables) and the reflow oracle needs them present in every state, not just
+  // late ones.
+  //
+  // Each is counted inside its OWN scroll region. There are two since the
+  // post-quantum families matrix arrived, and `.matrix tbody tr` across both
+  // is a denominator nobody is checking: adding that table took this helper
+  // from 5 to 8 without touching the panel the assertion is about, failed
+  // every test that imports `boot()`, and reported it under the name "no WCAG
+  // A/AA violations in dark theme". Bumping the 5 to an 8 would have restored
+  // green while leaving one number standing for two unrelated tables.
+  await expect(
+    page.locator('[aria-label="property matrix (scrollable)"] .matrix tbody tr'),
+  ).toHaveCount(5);
+  await expect(
+    page.locator('[aria-label="Post-quantum PAKE research families (scrollable)"] .matrix tbody tr'),
+  ).toHaveCount(3);
 
   await settle(page);
   await expectNotBlank(page, `${theme} first paint`);

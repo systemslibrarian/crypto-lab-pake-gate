@@ -66,7 +66,14 @@ export function decodeJPakeElement(
   group: JPakeGroupParameters,
   rule: JPakeDecodeRule,
 ): bigint {
-  const Y = os2ip(fromHex(h));
+  const encoded = fromHex(h);
+  if (encoded.length !== group.pLen) {
+    throw new HandshakeAbort(
+      `J-PAKE ${rule.field} has the wrong encoded length`,
+      `${rule.field} must be exactly ${group.pLen} bytes in this profile; shortened or oversized encodings are rejected.`,
+    );
+  }
+  const Y = os2ip(encoded);
   if (Y < 1n || Y >= group.p) {
     throw new HandshakeAbort(
       `J-PAKE ${rule.field} not canonical`,

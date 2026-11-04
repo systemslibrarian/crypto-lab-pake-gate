@@ -3,9 +3,10 @@
 **SRP-6a · J-PAKE · CPace · Dragonfly (RFC 7664) — the PAKE family, side by side.**
 
 A live, in-browser tour of Password-Authenticated Key Exchange: how two parties turn a
-shared, low-entropy **password** into a strong shared key without sending the password
-itself. A passive transcript is not an offline password test; a stolen server verifier
-can still permit per-user offline guesses, depending on the PAKE. Real group
+shared, low-entropy **password** into a strong shared key **without sending the password
+itself**. A passive transcript gives an observer no direct offline password test; a
+stolen server verifier can still permit per-user offline guesses, depending on the
+PAKE, and a compromised endpoint is a separate case again. Real group
 arithmetic and real hash primitives — SHA-1/256/512, HMAC and HKDF come from
 `@noble/hashes` rather than WebCrypto's async SubtleCrypto (same primitives,
 synchronous, so the engines and KATs stay deterministic); session randomness comes from
@@ -34,7 +35,7 @@ plain-language caption (“sends its public Diffie–Hellman share `g^a` — use
 password”). Pressing **Go deeper** reveals the full notation, in-context glossary tooltips
 (scalar, verifier `v`, premaster `S`, Schnorr NIZK, salt…), the tamper / observer / breach
 panels, and the other three protocols. Nothing is dumbed down — the clarity is layered on
-top of the same spec-accurate, test-verified crypto.
+top of the same profile-explicit, test-verified crypto.
 
 | Protocol | Family | What's distinctive | Standard |
 | --- | --- | --- | --- |
@@ -62,7 +63,7 @@ including password-guessing and server-compromise assumptions. The linked Octobe
 
 
 ```bash
-npm install
+npm ci
 npm run dev        # local dev server
 npm run build      # static build → dist/  (deployed to GitHub Pages)
 ```
@@ -96,7 +97,7 @@ primes are derived from first principles and verified as safe primes. Full prove
   wire), and the taxonomy data.
 - `src/ui/` — vanilla-DOM UI (no framework): tabbed split view, wire transcript, key panel,
   attacker/breach/Dragonblood panels.
-- `tests/` — 90+ tests: published vectors, independent KATs, round-trips, security invariants,
+- `tests/` — 120+ tests: published vectors, independent KATs, round-trips, security invariants,
   fail-closed edge cases, tamper-aborts-pre-key, offline-grind asymmetry, plus jsdom render +
   axe-core accessibility + runner interaction tests.
 
