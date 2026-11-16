@@ -94,7 +94,7 @@ export function lp16(data: Uint8Array): Uint8Array {
   return concat(uint16be(data.length), data);
 }
 
-// --- CPace length-value concatenation (draft-irtf-cfrg-cpace-21 §4) ---
+// --- CPace length-value concatenation (draft-irtf-cfrg-cpace-21 §6.3) ---
 // prepend_len uses LEB128; all PAKE-Gate fields are < 128 bytes so this is a single
 // length byte, but the full LEB128 is implemented for correctness.
 export function prependLen(data: Uint8Array): Uint8Array {
