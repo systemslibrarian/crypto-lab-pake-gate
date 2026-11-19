@@ -37,7 +37,7 @@ function run(pwA: string, pwB: string) {
   return { A, B, wire, aTag, bTag };
 }
 
-describe("CPace encoding primitives (draft-21 §4) — pinned", () => {
+describe("CPace encoding primitives (draft-21 §6.3) — pinned", () => {
   it("prepend_len uses a single length byte for short data", () => {
     expect(Buffer.from(prependLen(fromHex("aabbcc"))).toString("hex")).toBe("03aabbcc");
     expect(Buffer.from(prependLen(new Uint8Array(0))).toString("hex")).toBe("00");

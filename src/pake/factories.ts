@@ -48,8 +48,9 @@ const EXP384 = 1n << 384n;
 /**
  * PAKE-Gate ephemeral-exponent policy for the large MODP groups (SRP-Track-2 4096,
  * J-PAKE 3072): a uniform 384-bit exponent — os2ip of 48 CSPRNG bytes, +1, i.e.
- * uniform on [1, 2^384]. This is ≥ 384 bits of entropy (RFC 5054 §3 asks only for
- * ≥ 256-bit ephemerals) and is deliberately NOT uniform over the full group order:
+ * uniform on [1, 2^384]. This is ≥ 384 bits of entropy (RFC 5054 §2.5.3 and §2.5.4
+ * say only that the private values b and a SHOULD be at least 256 bits; §3, Security
+ * Considerations, gives no length) and is deliberately NOT uniform over the full group order:
  * full-width exponents would multiply every modexp's cost ~8-11x for no teaching
  * benefit. An earlier version documented this function as "uniform in [1, max-1]",
  * which it never was — do not call it that. The guard below makes the window
