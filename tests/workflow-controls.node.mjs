@@ -11,6 +11,7 @@ import test from "node:test";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const workflowDir = join(root, ".github", "workflows");
+const DEPLOY = 'deploy.yml';
 const read = (name) => readFileSync(join(workflowDir, name), "utf8");
 
 test("every third-party action is pinned to a full commit", () => {
@@ -48,11 +49,17 @@ test("main Pages publication is never canceled midway", () => {
 
 test("CI exercises every supported Node major and the exact lock audit", () => {
   const ci = read("ci.yml");
-  assert.match(ci, /node:\s*\[22, 24, 26\]/);
-  assert.match(ci, /npm audit --omit=dev --audit-level=high/);
+  // The unit/audit gate moved to unit-gate.yml so the publish could wait on
+  // the same definition the auto-merge waits on. Assert where it LIVES, and
+  // that both callers reach it.
+  const unit = read('unit-gate.yml');
+  assert.match(unit, /node:\s*\[22, 24, 26\]/);
+  assert.match(ci, /uses: \.\/\.github\/workflows\/unit-gate\.yml/);
+  assert.match(read(DEPLOY), /uses: \.\/\.github\/workflows\/unit-gate\.yml/);
+  assert.match(unit, /npm audit --omit=dev --audit-level=high/);
   // and that the full audit still runs where it cannot block, so a dev
   // advisory stays in the log rather than becoming absent.
-  assert.match(ci, /continue-on-error: true\n\s*run: npm audit\n/);
+  assert.match(unit, /continue-on-error: true\n\s*run: npm audit\n/);
   assert.match(read("browser-gate.yml"), /npm audit --omit=dev --audit-level=high/);
   // and that the full audit still runs where it cannot block, so a dev
   // advisory stays in the log rather than becoming absent.
