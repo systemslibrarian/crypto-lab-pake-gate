@@ -4,6 +4,7 @@ import { auditContrast, formatContrastFailures } from './contrast';
 import { auditControlNames, formatControlNameFailures } from './control-names';
 import { auditNonText } from './nontext';
 import { NONTEXT_BASELINE } from './nontext-baseline';
+import { assertThisLab } from './identity';
 
 export const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 
@@ -256,7 +257,15 @@ export async function boot(page: Page, theme: 'dark' | 'light'): Promise<void> {
   page.setDefaultTimeout(20_000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.addInitScript((t) => localStorage.setItem('theme', t), theme);
-  await page.goto('.');
+  /* Not page.goto: a suite that navigates and starts asserting cannot
+   * tell this lab's server from anyone else's. See e2e/identity.ts.
+   * This lab is served from the ROOT, so there is no /crypto-lab-<slug>/ in
+   * its baseURL to read an identity from -- hence a marker. The href is
+   * matched WHOLE and EXACTLY: crypto-lab-spake-gate ends in "pake-gate",
+   * so a substring match would accept that lab's page as this one. */
+  await assertThisLab(page, '.', {
+    marker: 'a.cl-btn[href="https://github.com/systemslibrarian/crypto-lab-pake-gate"]',
+  });
   expect(
     await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches),
     'reduced-motion emulation must actually be in effect'
